@@ -813,7 +813,7 @@
       }
     }
 
-    function renderMatches() {
+function renderMatches() {
       const container = document.getElementById('matches-list');
       let filtered = allMatches.filter(m => !m.archived);
 
@@ -833,10 +833,23 @@
         filtered = filtered.filter(m => isMatchCompleted(m));
       }
 
-      // 2. Dynamische Sortierung je nach Filter
-      if (currentFilter === 'completed' || currentFilter === 'all') {
+      // 2. Sortierung nach deinen Wünschen
+      if (currentFilter === 'all') {
+        // Bei "Alle": Anstehende/Live-Spiele OBEN (nächstes Spiel zuerst), Beendete Spiele UNTEN (neueste zuerst)
+        const upcomingOrLive = filtered
+          .filter(m => !isMatchCompleted(m))
+          .sort((a, b) => parseMatchDate(a.date) - parseMatchDate(b.date));
+
+        const completed = filtered
+          .filter(m => isMatchCompleted(m))
+          .sort((a, b) => parseMatchDate(b.date) - parseMatchDate(a.date));
+
+        filtered = [...upcomingOrLive, ...completed];
+      } else if (currentFilter === 'completed') {
+        // Bei "Beendet": Neueste Spiele oben
         filtered.sort((a, b) => parseMatchDate(b.date) - parseMatchDate(a.date));
       } else {
+        // Bei "Anstehend" & "Live": Nächstes Spiel oben
         filtered.sort((a, b) => parseMatchDate(a.date) - parseMatchDate(b.date));
       }
 
