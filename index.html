@@ -1,0 +1,1481 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TT-Verein Live - VfR 07 Limburg (Saison 2026/27)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="bg-slate-800 text-slate-100 min-h-screen pb-12">
+  <div id="app" class="max-w-4xl mx-auto px-4 py-6 space-y-4">
+    
+    <!-- KOPFBEREICH -->
+    <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900 p-5 rounded-2xl border border-slate-700 shadow-xl">
+      <div class="flex items-center gap-4">
+        <div class="w-14 h-14 bg-white border border-slate-200 rounded-xl p-1.5 flex items-center justify-center shadow-md overflow-hidden shrink-0">
+          <img src="https://thumb.wikimedia.org/wikipedia/commons/thumb/3/32/VfR_07_Limburg.svg/500px-VfR_07_Limburg.svg.png?utm_source=de.wikipedia.org&utm_campaign=parser&utm_content=thumbnail" alt="VfR 07 Limburg Logo" class="w-full h-full object-contain">
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-xl font-extrabold text-white tracking-wide">VfR 07 Limburg</h1>
+            <span id="status-badge" class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1">
+              <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> Verbinde...
+            </span>
+          </div>
+          <p class="text-xs text-slate-300">Spielplan & Live-Ergebnisse • <span class="text-emerald-400 font-semibold">Saison 2026/27</span></p>
+        </div>
+      </div>
+      
+      <div class="flex items-center gap-2 w-full sm:w-auto">
+        <button onclick="shareWhatsApp()" class="flex-1 sm:flex-none bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-medium px-3.5 py-2.5 rounded-xl transition flex items-center justify-center gap-2 text-sm">
+          <i data-lucide="share-2" class="w-4 h-4"></i> WhatsApp
+        </button>
+        <button onclick="openAddMatchModal()" class="flex-1 sm:flex-none bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-semibold px-4 py-2.5 rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 text-sm">
+          <i data-lucide="plus-circle" class="w-4 h-4"></i> Eintrag anlegen
+        </button>
+      </div>
+    </header>
+
+    <!-- Stat-Cards -->
+    <div class="grid grid-cols-3 gap-3 sm:gap-4">
+      <div class="bg-slate-900 p-4 rounded-xl border border-slate-700 shadow-md">
+        <p id="stat-upcoming-label" class="text-xs text-slate-300 font-medium truncate">Anstehend (Komplett)</p>
+        <p id="stat-upcoming" class="text-2xl font-extrabold text-white mt-1">0</p>
+      </div>
+      <div class="bg-slate-900 p-4 rounded-xl border border-slate-700 shadow-md">
+        <p id="stat-completed-label" class="text-xs text-slate-300 font-medium truncate">Gespielt (Komplett)</p>
+        <p id="stat-completed" class="text-2xl font-extrabold text-emerald-400 mt-1">0</p>
+      </div>
+      <div class="bg-slate-900 p-4 rounded-xl border border-slate-700 shadow-md">
+        <p class="text-xs text-slate-300 font-medium">Teams</p>
+        <p id="stat-teams" class="text-2xl font-extrabold text-white mt-1">0</p>
+      </div>
+    </div>
+
+    <!-- ZWISCHENBEREICH: Termine & Veranstaltungen Banner -->
+    <div id="events-banner-container"></div>
+
+    <!-- STICKY NAVIGATION -->
+    <div class="sticky top-0 z-30 bg-slate-800 py-2">
+      <div class="bg-slate-900 p-3 sm:p-4 rounded-xl border border-slate-700 shadow-xl flex flex-col md:flex-row gap-3 justify-between items-stretch md:items-center w-full">
+        <div class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 sm:pb-0 w-full md:w-auto">
+          <button onclick="switchTab('matches')" id="tab-btn-matches" class="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-emerald-500 text-slate-950 flex items-center justify-center gap-1.5 shrink-0">
+            <i data-lucide="calendar" class="w-4 h-4"></i> Spielplan
+          </button>
+
+          <div class="relative shrink-0">
+            <select id="team-filter-select" onchange="onTeamSelectChange(this.value)" class="appearance-none bg-slate-800 text-slate-200 border border-slate-700 hover:border-slate-500 font-semibold px-3 py-2 rounded-lg text-xs sm:text-sm focus:outline-none focus:border-emerald-500 transition cursor-pointer pr-7">
+              <option value="ALL">Alle Teams</option>
+              <option value="1. Mannschaft">1. Mannschaft</option>
+              <option value="2. Mannschaft">2. Mannschaft</option>
+              <option value="3. Mannschaft">3. Mannschaft</option>
+              <option value="4. Mannschaft">4. Mannschaft</option>
+              <option value="5. Mannschaft">5. Mannschaft</option>
+              <option value="Jugend U15">Jugend U15</option>
+              <option value="Jugend U13">Jugend U13</option>
+            </select>
+            <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-3 pointer-events-none"></i>
+          </div>
+
+          <button onclick="switchTab('standings')" id="tab-btn-standings" class="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold text-slate-300 hover:text-white flex items-center justify-center gap-1.5 shrink-0">
+            <i data-lucide="bar-chart-2" class="w-4 h-4"></i> Bilanzen
+          </button>
+          <button onclick="switchTab('cup')" id="tab-btn-cup" class="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold text-slate-300 hover:text-white flex items-center justify-center gap-1.5 shrink-0">
+            <i data-lucide="trophy" class="w-4 h-4"></i> Pokal
+          </button>
+        </div>
+
+        <!-- Filter im Spielplan (inkl. LIVE Button) -->
+        <div id="filter-container" class="flex gap-1.5 w-full md:w-auto justify-between sm:justify-end shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-800">
+          <button onclick="setFilter('live')" id="filter-live" class="filter-btn flex-1 md:flex-none px-3 py-1.5 rounded-md text-xs font-semibold text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-center flex items-center justify-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span> Live
+          </button>
+          <button onclick="setFilter('upcoming')" id="filter-upcoming" class="filter-btn flex-1 md:flex-none px-3 py-1.5 rounded-md text-xs font-medium bg-slate-700 text-white text-center">Anstehend</button>
+          <button onclick="setFilter('all')" id="filter-all" class="filter-btn flex-1 md:flex-none px-3 py-1.5 rounded-md text-xs font-medium text-slate-300 hover:text-white text-center">Alle</button>
+          <button onclick="setFilter('completed')" id="filter-completed" class="filter-btn flex-1 md:flex-none px-3 py-1.5 rounded-md text-xs font-medium text-slate-300 hover:text-white text-center">Beendet</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ANSICHT 1: Spiele Liste -->
+    <div id="tab-matches" class="space-y-3">
+      <div id="matches-list" class="space-y-3">
+        <div class="text-center py-12 text-slate-400">
+          <i data-lucide="loader-2" class="w-8 h-8 animate-spin mx-auto mb-2 text-emerald-400"></i>
+          Lade Spieldaten in Echtzeit...
+        </div>
+      </div>
+    </div>
+
+    <!-- ANSICHT 2: Mannschafts-Bilanzen -->
+    <div id="tab-standings" class="hidden space-y-4">
+      <div class="bg-slate-900 border border-slate-700 rounded-2xl p-4 sm:p-5 shadow-xl">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-700 mb-4">
+          <div>
+            <h2 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+              <i data-lucide="bar-chart-2" class="w-5 h-5 text-emerald-400"></i>
+              Bilanzen (Saison 2026/27)
+            </h2>
+            <p class="text-xs text-slate-300 mt-0.5">Berechnet aus allen beendeten Meisterschaftsspielen (ohne Pokal)</p>
+          </div>
+          <button onclick="openTeamLinksModal()" class="text-xs bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-600 px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 transition">
+            <i data-lucide="link" class="w-3.5 h-3.5"></i> Links verwalten
+          </button>
+        </div>
+
+        <div id="standings-cards-container" class="space-y-3 sm:hidden"></div>
+
+        <div class="hidden sm:block overflow-x-auto">
+          <table class="w-full text-left text-sm text-slate-200">
+            <thead class="text-xs uppercase bg-slate-800 text-slate-300 border-b border-slate-700">
+              <tr>
+                <th class="py-3 px-3">Mannschaft</th>
+                <th class="py-3 px-2 text-center">Spielerbilanz</th>
+                <th class="py-3 px-2 text-center">Spiele</th>
+                <th class="py-3 px-2 text-center tracking-widest">S - U - N</th>
+                <th class="py-3 px-2 text-center">Spiele-Verhältnis</th>
+                <th class="py-3 px-2 text-center font-bold text-emerald-400">Punkte</th>
+              </tr>
+            </thead>
+            <tbody id="standings-table-body" class="divide-y divide-slate-800"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ANSICHT 3: Pokal -->
+    <div id="tab-cup" class="hidden space-y-4">
+      <div class="bg-slate-900 border border-slate-700 rounded-2xl p-4 sm:p-5 shadow-xl">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-700 mb-4">
+          <div>
+            <h2 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+              <i data-lucide="trophy" class="w-5 h-5 text-amber-400"></i>
+              Pokal (Saison 2026/27)
+            </h2>
+            <p class="text-xs text-slate-300 mt-0.5">Übersicht aller Pokalspiele. Ergebnisse fließen nicht in die Gesamtbilanz ein.</p>
+          </div>
+        </div>
+
+        <div id="cup-matches-list" class="space-y-3"></div>
+      </div>
+    </div>
+
+    <!-- ANSICHT 4: Termine & Events -->
+    <div id="tab-events" class="hidden space-y-4">
+      <div class="bg-slate-900 border border-slate-700 rounded-2xl p-4 sm:p-5 shadow-xl">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-700 mb-4">
+          <div>
+            <h2 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+              <i data-lucide="party-popper" class="w-5 h-5 text-purple-400"></i>
+              Vereinstermine & Veranstaltungen
+            </h2>
+            <p class="text-xs text-slate-300 mt-0.5">Sommerfeste, Jahreshauptversammlungen, Turniere und sonstige Termine.</p>
+          </div>
+          <button onclick="switchTab('matches')" class="text-xs text-slate-400 hover:text-white flex items-center gap-1">
+            <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> Zum Spielplan
+          </button>
+        </div>
+
+        <div id="events-list" class="space-y-3"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Modal: Spiel / Termin Hinzufügen / Bearbeiten -->
+  <div id="match-modal" class="hidden fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-slate-800 border border-slate-600 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+        <h3 id="modal-title" class="font-bold text-lg text-white">Neuen Eintrag anlegen</h3>
+        <button onclick="closeModal()" class="text-slate-300 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      
+      <form id="match-form" onsubmit="saveMatch(event)" class="space-y-3">
+        <input type="hidden" id="match-id">
+        
+        <div>
+          <label class="text-xs text-slate-300 font-medium">Eintragstyp</label>
+          <select id="match-type" onchange="toggleFormFields()" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-sm mt-1 text-white focus:outline-none focus:border-emerald-500">
+            <option value="league">Meisterschaft</option>
+            <option value="cup">🏆 Pokalspiel</option>
+            <option value="event">🎉 Termin / Veranstaltung</option>
+          </select>
+        </div>
+
+        <div id="team-select-container">
+          <label class="text-xs text-slate-300 font-medium">Eigene Mannschaft</label>
+          <select id="my-team" onchange="handleTeamSelectChange(this)" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-sm mt-1 text-white focus:outline-none focus:border-emerald-500">
+            <option value="1. Mannschaft">1. Mannschaft</option>
+            <option value="2. Mannschaft">2. Mannschaft</option>
+            <option value="3. Mannschaft">3. Mannschaft</option>
+            <option value="4. Mannschaft">4. Mannschaft</option>
+            <option value="5. Mannschaft">5. Mannschaft</option>
+            <option value="Jugend U15">Jugend U15</option>
+            <option value="Jugend U13">Jugend U13</option>
+            <option value="__NEW__">+ Neue Mannschaft hinzufügen...</option>
+          </select>
+          <input type="text" id="custom-team" placeholder="Mannschaftsname eingeben" class="hidden w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-sm mt-2 text-white focus:outline-none focus:border-emerald-500">
+        </div>
+
+        <div>
+          <label id="opponent-label" class="text-xs text-slate-300 font-medium">Gegner</label>
+          <input type="text" id="opponent" required placeholder="z.B. TTC Elz II" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-sm mt-1 text-white focus:outline-none focus:border-emerald-500">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-slate-300 font-medium">Datum & Uhrzeit</label>
+            <input type="datetime-local" id="match-date" required class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-sm mt-1 text-white focus:outline-none focus:border-emerald-500">
+          </div>
+          <div id="is-home-container">
+            <label class="text-xs text-slate-300 font-medium">Spielort</label>
+            <select id="is-home" onchange="toggleAddressInput()" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-sm mt-1 text-white focus:outline-none focus:border-emerald-500">
+              <option value="true">Heimspiel</option>
+              <option value="false">Auswärts</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="address-container">
+          <label class="text-xs text-slate-300 font-medium flex items-center justify-between">
+            <span id="address-label">Hallenadresse / Ort (für Navi)</span>
+            <span class="text-[10px] text-slate-400">Optional</span>
+          </label>
+          <div class="relative mt-1">
+            <input type="text" id="match-address" placeholder="z.B. Vereinsheim / Halle Elz" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 pl-8 text-sm text-white focus:outline-none focus:border-emerald-500">
+            <i data-lucide="map-pin" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-3"></i>
+          </div>
+        </div>
+
+        <div id="pin-code-container" class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-slate-300 font-medium flex items-center justify-between">
+              <span>Spiel-PIN</span>
+              <span class="text-[10px] text-slate-400">Optional</span>
+            </label>
+            <div class="relative mt-1">
+              <input type="text" id="match-pin" placeholder="z.B. 4821" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 pl-8 text-sm text-white font-mono tracking-wider focus:outline-none focus:border-emerald-500">
+              <i data-lucide="key-round" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-3"></i>
+            </div>
+          </div>
+          <div>
+            <label class="text-xs text-slate-300 font-medium flex items-center justify-between">
+              <span>Code / Spiellokal</span>
+              <span class="text-[10px] text-slate-400">Optional</span>
+            </label>
+            <div class="relative mt-1">
+              <input type="text" id="match-code" placeholder="z.B. Halle 2" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 pl-8 text-sm text-white font-mono tracking-wider focus:outline-none focus:border-emerald-500">
+              <i data-lucide="building-2" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-3"></i>
+            </div>
+          </div>
+        </div>
+
+        <div id="score-container" class="border-t border-slate-700 pt-3">
+          <label class="text-xs text-slate-300 font-medium">Ergebnis (Beendet sobald Mindestsumme erreicht)</label>
+          <div class="flex items-center gap-2 mt-1">
+            <input type="number" id="score-home" min="0" max="15" placeholder="Heim" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-sm text-center text-white focus:outline-none focus:border-emerald-500">
+            <span class="text-slate-400 font-bold">:</span>
+            <input type="number" id="score-away" min="0" max="15" placeholder="Gast" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-sm text-center text-white focus:outline-none focus:border-emerald-500">
+          </div>
+        </div>
+
+        <div class="flex gap-2 pt-2">
+          <button type="button" onclick="closeModal()" class="w-1/2 bg-slate-700 hover:bg-slate-600 py-2.5 rounded-xl text-sm font-semibold text-slate-200 border border-slate-600">Abbrechen</button>
+          <button type="submit" class="w-1/2 bg-emerald-500 hover:bg-emerald-600 py-2.5 rounded-xl text-sm font-semibold text-slate-950 shadow-md">Speichern</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Links verwalten -->
+  <div id="team-links-modal" class="hidden fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-slate-800 border border-slate-600 rounded-2xl w-full max-w-xl p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+        <h3 class="font-bold text-lg text-white flex items-center gap-2">
+          <i data-lucide="link" class="w-5 h-5 text-emerald-400"></i> Mannschafts- & Bilanz-Links verwalten
+        </h3>
+        <button onclick="closeTeamLinksModal()" class="text-slate-300 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <p class="text-xs text-slate-300">Trage hier für jede Mannschaft getrennt den Link zur **Mannschaftstabelle** und zur **Spielerbilanz** ein.</p>
+      
+      <div id="team-links-form-container" class="space-y-4"></div>
+
+      <div class="flex gap-2 pt-3 border-t border-slate-700">
+        <button type="button" onclick="closeTeamLinksModal()" class="w-1/2 bg-slate-700 hover:bg-slate-600 py-2.5 rounded-xl text-sm font-semibold text-slate-200 border border-slate-600">Abbrechen</button>
+        <button type="button" onclick="saveTeamLinks(event)" class="w-1/2 bg-emerald-500 hover:bg-emerald-600 py-2.5 rounded-xl text-sm font-semibold text-slate-950 shadow-md">Links speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBtH6B6UZ8Ce-9LnxKnwJivclLnFzsziIQ",
+      authDomain: "tischtennis-spiele.firebaseapp.com",
+      projectId: "tischtennis-spiele",
+      storageBucket: "tischtennis-spiele.firebasestorage.app",
+      messagingSenderId: "726177289815",
+      appId: "1:726177289815:web:188ec3936e1662998a7512"
+    };
+
+    let db = null;
+    let isFirebaseConnected = false;
+    let allMatches = [];
+    let currentFilter = 'upcoming';
+    let currentTab = 'matches';
+    let selectedTeamFilter = 'ALL';
+
+    const defaultTeams = [
+      "1. Mannschaft", "2. Mannschaft", "3. Mannschaft", 
+      "4. Mannschaft", "5. Mannschaft", "Jugend U15", "Jugend U13"
+    ];
+
+    let teamLinks = {
+      "1. Mannschaft": { table: "https://www.mytischtennis.de/click-tt/HeTTV/26--27/ligen/Bezirksklasse_Gr_West_1/gruppe/518809/tabelle/gesamt/", players: "https://www.mytischtennis.de/click-tt/HeTTV/26--27/ligen/Bezirksklasse_Gr_West_1/gruppe/518809/bilanzen/gesamt/" },
+      "2. Mannschaft": { table: "https://www.mytischtennis.de/click-tt/HeTTV/26--27/ligen/Kreisliga_Gr._1/gruppe/519124/tabelle/gesamt", players: "https://www.mytischtennis.de/click-tt/HeTTV/26--27/ligen/Kreisliga_Gr._1/gruppe/519124/bilanzen/gesamt" },
+      "3. Mannschaft": { table: "https://www.mytischtennis.de/click-tt/HeTTV/26--27/ligen/1._Kreisklasse_Gr._2/gruppe/519337/tabelle/gesamt", players: "https://www.mytischtennis.de/click-tt/HeTTV/26--27/ligen/1._Kreisklasse_Gr._2/gruppe/519337/bilanzen/gesamt" },
+      "4. Mannschaft": { table: "https://www.mytischtennis.de/click-tt/HeTTV/26--27/ligen/3._Kreisklasse_Gr._3/gruppe/519399/tabelle/gesamt", players: "https://www.mytischtennis.de/click-tt/HeTTV/26--27/ligen/3._Kreisklasse_Gr._3/gruppe/519399/bilanzen/gesamt" },
+      "5. Mannschaft": { table: "https://www.mytischtennis.de/click-tt/HeTTV/26--27/ligen/3._Kreisklasse_Gr._2_/gruppe/519203/tabelle/gesamt", players: "https://www.mytischtennis.de/click-tt/HeTTV/26--27/ligen/3._Kreisklasse_Gr._2_/gruppe/519203/bilanzen/gesamt" },
+      "Jugend U15": { table: "https://www.mytischtennis.de/click-tt/HeTTV/26--27/ligen/Kreisklasse/gruppe/519388/tabelle/gesamt", players: "https://www.mytischtennis.de/click-tt/HeTTV/26--27/ligen/Kreisklasse/gruppe/519388/bilanzen/gesamt" },
+      "Jugend U13": { table: "https://www.mytischtennis.de/click-tt/HeTTV/26--27/ligen/Kreisklasse/gruppe/519402/tabelle/gesamt", players: "https://www.mytischtennis.de/click-tt/HeTTV/26--27/ligen/Kreisklasse/gruppe/519402/bilanzen/gesamt" }
+    };
+
+    function parseMatchDate(dateStr) {
+      if (!dateStr) return new Date(0);
+      return new Date(dateStr.toString().replace('Z', ''));
+    }
+
+    function sortMatchesChronologically() {
+      allMatches.sort((a, b) => parseMatchDate(a.date) - parseMatchDate(b.date));
+    }
+
+    /* Live-Erkennung: Zwischenstand ODER Zeitfenster (5 Min vor Anpfiff bis 3h danach) */
+    function isMatchLive(m) {
+      const type = m.matchType || (m.myTeam === 'Verein' ? 'event' : 'league');
+      if (type === 'event') return false;
+
+      // Wenn das Spiel beendet ist, ist es nicht mehr LIVE
+      if (isMatchCompleted(m)) return false;
+
+      // Kriterium 1: Es wurde bereits ein Zwischenstand eingetragen
+      const hasPartialScore = m.scoreHome !== null && m.scoreAway !== null && m.scoreHome !== "" && m.scoreAway !== "";
+      if (hasPartialScore) return true;
+
+      // Kriterium 2: Zeitfenster (ab 5 Minuten vor Spielbeginn bis 3 Stunden nach Spielbeginn)
+      if (m.date) {
+        const matchDate = parseMatchDate(m.date);
+        const now = new Date();
+        const fiveMinBefore = new Date(matchDate.getTime() - 5 * 60 * 1000);
+        const threeHoursAfter = new Date(matchDate.getTime() + 3 * 60 * 60 * 1000);
+
+        if (now >= fiveMinBefore && now <= threeHoursAfter) {
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+    function isMatchCompleted(m) {
+      const type = m.matchType || (m.myTeam === 'Verein' ? 'event' : 'league');
+      if (type === 'event') return parseMatchDate(m.date) < new Date();
+      if (m.scoreHome === null || m.scoreAway === null || m.scoreHome === "" || m.scoreAway === "") {
+        return false;
+      }
+      const sum = parseInt(m.scoreHome) + parseInt(m.scoreAway);
+      const minSum = type === 'cup' ? 4 : 10;
+      return sum >= minSum;
+    }
+
+    try {
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.firestore();
+      
+      db.collection('settings').doc('teamLinks').get().then(doc => {
+        if (doc.exists && doc.data().links) {
+          const loaded = doc.data().links;
+          Object.keys(loaded).forEach(t => {
+            if (typeof loaded[t] === 'string') {
+              teamLinks[t] = { table: loaded[t], players: loaded[t] };
+            } else {
+              teamLinks[t] = loaded[t];
+            }
+          });
+        }
+      }).catch(() => {});
+
+      db.collection('matches').onSnapshot((snapshot) => {
+        isFirebaseConnected = true;
+        updateStatusBadge(true);
+
+        if (snapshot.empty) {
+          seedInitialData();
+          return;
+        }
+
+        allMatches = [];
+        snapshot.forEach(doc => {
+          allMatches.push({ id: doc.id, ...doc.data() });
+        });
+
+        sortMatchesChronologically();
+        updateTeamDropdownOptions();
+        updateStats();
+        renderEventsBanner();
+        renderMatches();
+        renderStandings();
+        renderCupMatches();
+        renderEvents();
+      }, (err) => {
+        console.warn("Firebase Online-Verbindung fehlgeschlagen:", err);
+        fallbackToLocalStorage();
+      });
+    } catch (e) {
+      fallbackToLocalStorage();
+    }
+
+    function fallbackToLocalStorage() {
+      isFirebaseConnected = false;
+      updateStatusBadge(false);
+      
+      const savedLinks = localStorage.getItem('tt_team_links_v2');
+      if (savedLinks) {
+        teamLinks = JSON.parse(savedLinks);
+      }
+
+      const localData = localStorage.getItem('tt_matches');
+      if (localData) {
+        allMatches = JSON.parse(localData);
+      } else {
+        allMatches = [
+          { id: '1', matchType: "league", myTeam: "1. Mannschaft", opponent: "TTC Elz II", date: "2026-11-15T19:30", isHome: true, pin: "4821", code: "109823", address: "", scoreHome: null, scoreAway: null },
+          { id: '2', matchType: "league", myTeam: "2. Mannschaft", opponent: "TG Camberg", date: "2026-11-10T20:00", isHome: false, pin: "", code: "Halle 2", address: "Turnhalle Camberg", scoreHome: 6, scoreAway: 4 }
+        ];
+        saveLocal();
+      }
+      sortMatchesChronologically();
+      updateTeamDropdownOptions();
+      updateStats();
+      renderEventsBanner();
+      renderMatches();
+      renderStandings();
+      renderCupMatches();
+      renderEvents();
+    }
+
+    function saveLocal() {
+      localStorage.setItem('tt_matches', JSON.stringify(allMatches));
+    }
+
+    function updateStatusBadge(online) {
+      const badge = document.getElementById('status-badge');
+      if (online) {
+        badge.className = "px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1";
+        badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Live verbunden';
+      } else {
+        badge.className = "px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1";
+        badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-400"></span> Lokaler Modus';
+      }
+    }
+
+    function updateTeamDropdownOptions() {
+      const select = document.getElementById('team-filter-select');
+      if (!select) return;
+
+      const usedTeams = new Set(defaultTeams);
+      allMatches.forEach(m => { 
+        const type = m.matchType || (m.myTeam === 'Verein' ? 'event' : 'league');
+        if(m.myTeam && m.myTeam !== 'Verein' && type !== 'event') {
+          usedTeams.add(m.myTeam); 
+        }
+      });
+
+      const currentVal = selectedTeamFilter;
+      let html = '<option value="ALL">Alle Teams</option>';
+      
+      Array.from(usedTeams).sort((a, b) => {
+        let idxA = defaultTeams.indexOf(a);
+        let idxB = defaultTeams.indexOf(b);
+        if (idxA === -1) idxA = 99;
+        if (idxB === -1) idxB = 99;
+        if (idxA !== idxB) return idxA - idxB;
+        return a.localeCompare(b);
+      }).forEach(t => {
+        html += `<option value="${t}" ${t === currentVal ? 'selected' : ''}>${t}</option>`;
+      });
+
+      select.innerHTML = html;
+    }
+
+    async function seedInitialData() {
+      const demoMatches = [
+        { matchType: "league", myTeam: "1. Mannschaft", opponent: "TTC Elz II", date: "2026-11-15T19:30", isHome: true, pin: "4821", code: "109823", address: "", scoreHome: null, scoreAway: null },
+        { matchType: "league", myTeam: "2. Mannschaft", opponent: "TG Camberg", date: "2026-11-10T20:00", isHome: false, pin: "", code: "Halle 2", address: "Turnhalle Camberg", scoreHome: 6, scoreAway: 4 }
+      ];
+      for (const m of demoMatches) {
+        await db.collection('matches').add(m);
+      }
+    }
+
+    function updateStats() {
+      let filtered = allMatches;
+
+      const upcomingLabel = document.getElementById('stat-upcoming-label');
+      const completedLabel = document.getElementById('stat-completed-label');
+
+      if (selectedTeamFilter && selectedTeamFilter !== 'ALL') {
+        filtered = allMatches.filter(m => m.myTeam === selectedTeamFilter);
+        upcomingLabel.textContent = `Anstehend (${selectedTeamFilter})`;
+        completedLabel.textContent = `Gespielt (${selectedTeamFilter})`;
+      } else {
+        upcomingLabel.textContent = "Anstehend (Komplett)";
+        completedLabel.textContent = "Gespielt (Komplett)";
+      }
+
+      const completed = filtered.filter(m => isMatchCompleted(m)).length;
+      const upcoming = filtered.length - completed;
+
+      const teams = new Set(allMatches.filter(m => {
+        const type = m.matchType || (m.myTeam === 'Verein' ? 'event' : 'league');
+        return type !== 'event' && m.myTeam !== 'Verein';
+      }).map(m => m.myTeam)).size;
+
+      document.getElementById('stat-upcoming').textContent = upcoming;
+      document.getElementById('stat-completed').textContent = completed;
+      document.getElementById('stat-teams').textContent = teams;
+    }
+
+    function renderEventsBanner() {
+      const container = document.getElementById('events-banner-container');
+      const upcomingEvents = allMatches.filter(m => {
+        const type = m.matchType || (m.myTeam === 'Verein' ? 'event' : 'league');
+        return type === 'event' && parseMatchDate(m.date) >= new Date();
+      });
+      const nextEvent = upcomingEvents.length > 0 ? upcomingEvents[0] : null;
+
+      let nextDate = '';
+      if (nextEvent) {
+        const d = parseMatchDate(nextEvent.date);
+        nextDate = d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' Uhr';
+      }
+
+      container.innerHTML = `
+        <div class="bg-gradient-to-r from-purple-900/40 to-slate-900 border border-purple-500/50 rounded-xl p-4 shadow-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:border-purple-400 transition cursor-pointer" onclick="switchTab('events')">
+          <div class="space-y-1 flex-1">
+            <div class="flex items-center gap-2">
+              <span class="text-xs px-2.5 py-0.5 rounded font-bold bg-purple-500/30 text-purple-200 border border-purple-400/40 flex items-center gap-1">
+                <i data-lucide="party-popper" class="w-3.5 h-3.5 text-purple-300"></i> Termine & Veranstaltungen
+              </span>
+              <span class="text-xs text-purple-300 font-medium">${upcomingEvents.length} anstehend</span>
+            </div>
+            
+            <h3 class="text-base font-bold text-white hover:text-purple-200 transition">
+              🎉 ${nextEvent ? nextEvent.opponent : 'Keine anstehenden Veranstaltungen'}
+            </h3>
+            <p class="text-xs text-slate-300">
+              ${nextEvent ? `${nextDate} ${nextEvent.address ? '• ' + nextEvent.address : ''}` : 'Hier klicken, um alle Vereinstermine und Feste einzusehen.'}
+            </p>
+          </div>
+
+          <button onclick="event.stopPropagation(); switchTab('events')" class="w-full sm:w-auto px-4 py-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 border border-purple-400/40 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-1.5 shrink-0">
+            <span>Alle anzeigen</span>
+            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+          </button>
+        </div>
+      `;
+
+      lucide.createIcons();
+    }
+
+    function onTeamSelectChange(team) {
+      selectedTeamFilter = team;
+      updateStats();
+      if (currentTab !== 'matches') {
+        switchTab('matches');
+      } else {
+        renderMatches();
+      }
+    }
+
+    function switchTab(tab) {
+      currentTab = tab;
+      const matchesTab = document.getElementById('tab-matches');
+      const standingsTab = document.getElementById('tab-standings');
+      const cupTab = document.getElementById('tab-cup');
+      const eventsTab = document.getElementById('tab-events');
+      const filterContainer = document.getElementById('filter-container');
+
+      const btnMatches = document.getElementById('tab-btn-matches');
+      const btnStandings = document.getElementById('tab-btn-standings');
+      const btnCup = document.getElementById('tab-btn-cup');
+
+      matchesTab.classList.add('hidden');
+      standingsTab.classList.add('hidden');
+      cupTab.classList.add('hidden');
+      eventsTab.classList.add('hidden');
+      filterContainer.classList.add('hidden');
+
+      const inactiveBtnClass = "px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold text-slate-300 hover:text-white flex items-center justify-center gap-1.5 shrink-0";
+      btnMatches.className = inactiveBtnClass;
+      btnStandings.className = inactiveBtnClass;
+      btnCup.className = inactiveBtnClass;
+
+      if (tab === 'matches') {
+        matchesTab.classList.remove('hidden');
+        filterContainer.classList.remove('hidden');
+        btnMatches.className = "px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-emerald-500 text-slate-950 flex items-center justify-center gap-1.5 shrink-0";
+        renderMatches();
+      } else if (tab === 'standings') {
+        standingsTab.classList.remove('hidden');
+        btnStandings.className = "px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-emerald-500 text-slate-950 flex items-center justify-center gap-1.5 shrink-0";
+        renderStandings();
+      } else if (tab === 'cup') {
+        cupTab.classList.remove('hidden');
+        btnCup.className = "px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-amber-400 text-slate-950 flex items-center justify-center gap-1.5 shrink-0";
+        renderCupMatches();
+      } else if (tab === 'events') {
+        eventsTab.classList.remove('hidden');
+        renderEvents();
+      }
+    }
+
+    function setFilter(filter) {
+      currentFilter = filter;
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        if(btn.id === 'filter-live') {
+          btn.className = "filter-btn flex-1 md:flex-none px-3 py-1.5 rounded-md text-xs font-semibold text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-center flex items-center justify-center gap-1";
+        } else {
+          btn.className = "filter-btn flex-1 md:flex-none px-3 py-1.5 rounded-md text-xs font-medium text-slate-300 hover:text-white text-center";
+        }
+      });
+
+      const activeBtn = document.getElementById(`filter-${filter}`);
+      if (filter === 'live') {
+        activeBtn.className = "filter-btn flex-1 md:flex-none px-3 py-1.5 rounded-md text-xs font-bold text-white bg-rose-600 shadow-lg shadow-rose-600/30 text-center flex items-center justify-center gap-1";
+      } else {
+        activeBtn.className = "filter-btn flex-1 md:flex-none px-3 py-1.5 rounded-md text-xs font-medium bg-slate-700 text-white text-center";
+      }
+
+      renderMatches();
+    }
+
+    function toggleFormFields() {
+      const type = document.getElementById('match-type').value;
+      const isEvent = type === 'event';
+
+      const teamContainer = document.getElementById('team-select-container');
+      const isHomeContainer = document.getElementById('is-home-container');
+      const pinCodeContainer = document.getElementById('pin-code-container');
+      const scoreContainer = document.getElementById('score-container');
+      const opponentLabel = document.getElementById('opponent-label');
+      const addressLabel = document.getElementById('address-label');
+      const opponentInput = document.getElementById('opponent');
+
+      if (isEvent) {
+        teamContainer.classList.add('hidden');
+        isHomeContainer.classList.add('hidden');
+        pinCodeContainer.classList.add('hidden');
+        scoreContainer.classList.add('hidden');
+        document.getElementById('address-container').classList.remove('hidden');
+        
+        opponentLabel.textContent = "Betreff / Veranstaltung";
+        opponentInput.placeholder = "z.B. Sommerfest / Jahreshauptversammlung";
+        addressLabel.textContent = "Veranstaltungsort / Adresse";
+      } else {
+        teamContainer.classList.remove('hidden');
+        isHomeContainer.classList.remove('hidden');
+        pinCodeContainer.classList.remove('hidden');
+        scoreContainer.classList.remove('hidden');
+        
+        opponentLabel.textContent = "Gegner";
+        opponentInput.placeholder = "z.B. TTC Elz II";
+        addressLabel.textContent = "Hallenadresse / Ort (für Navi)";
+        toggleAddressInput();
+      }
+    }
+
+    function toggleAddressInput() {
+      const isHomeSelect = document.getElementById('is-home');
+      const addressContainer = document.getElementById('address-container');
+      const type = document.getElementById('match-type').value;
+
+      if (type === 'event') return;
+
+      if (isHomeSelect.value === "false") {
+        addressContainer.classList.remove('hidden');
+      } else {
+        addressContainer.classList.add('hidden');
+      }
+    }
+
+    function renderMatches() {
+      const container = document.getElementById('matches-list');
+      let filtered = [...allMatches];
+
+      if (selectedTeamFilter !== 'ALL') {
+        filtered = filtered.filter(m => {
+          const type = m.matchType || (m.myTeam === 'Verein' ? 'event' : 'league');
+          return type === 'event' || m.myTeam === selectedTeamFilter;
+        });
+      }
+
+      // 1. Nach Filter filtern
+      if (currentFilter === 'live') {
+        filtered = filtered.filter(m => isMatchLive(m));
+      } else if (currentFilter === 'upcoming') {
+        filtered = filtered.filter(m => !isMatchCompleted(m));
+      } else if (currentFilter === 'completed') {
+        filtered = filtered.filter(m => isMatchCompleted(m));
+      }
+
+      // 2. NEU: Dynamische Sortierung je nach Filter
+      if (currentFilter === 'completed' || currentFilter === 'all') {
+        // Bei "Beendet" & "Alle": Neueste Spiele ganz OBERHALB, älteste UNTEN (absteigend)
+        filtered.sort((a, b) => parseMatchDate(b.date) - parseMatchDate(a.date));
+      } else {
+        // Bei "Live" & "Anstehend": Nächste/älteste Spiele OBERHALB, spätere UNTEN (aufsteigend)
+        filtered.sort((a, b) => parseMatchDate(a.date) - parseMatchDate(b.date));
+      }
+
+      if (filtered.length === 0) {
+        if (currentFilter === 'live') {
+          container.innerHTML = `
+            <div class="text-center py-12 bg-slate-900 border border-slate-700 rounded-xl">
+              <i data-lucide="radio" class="w-8 h-8 text-slate-500 mx-auto mb-2"></i>
+              <p class="text-sm text-slate-300 font-medium">Aktuell finden keine Live-Spiele statt.</p>
+              <p class="text-xs text-slate-400 mt-1">Spiele erscheinen hier 5 Minuten vor Spielbeginn oder sobald Zwischenstände vorliegen.</p>
+            </div>
+          `;
+        } else {
+          container.innerHTML = `<div class="text-center py-10 text-slate-400 text-sm">Keine Einträge vorhanden.</div>`;
+        }
+        lucide.createIcons();
+        return;
+      }
+
+      container.innerHTML = filtered.map(m => {
+        const type = m.matchType || (m.myTeam === 'Verein' ? 'event' : 'league');
+        const isEvent = type === 'event';
+        const isCup = type === 'cup';
+        const isDone = isMatchCompleted(m);
+        const isRunning = isMatchLive(m);
+        const matchDate = parseMatchDate(m.date);
+        const formattedDate = matchDate.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+        if (isEvent) {
+          const mapsUrl = m.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(m.address)}` : '';
+          return `
+            <div class="bg-gradient-to-r from-purple-900/30 to-slate-900 border border-purple-500/50 rounded-xl p-4 transition hover:border-purple-400 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-lg">
+              <div class="space-y-1.5 flex-1">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-xs px-2.5 py-0.5 rounded font-bold bg-purple-500/30 text-purple-200 border border-purple-400/40 flex items-center gap-1 shadow-sm">
+                    <i data-lucide="party-popper" class="w-3.5 h-3.5 text-purple-300"></i> Termin / Event
+                  </span>
+                  <span class="text-xs text-purple-200 flex items-center gap-1 font-medium">
+                    <i data-lucide="calendar" class="w-3.5 h-3.5"></i> ${formattedDate} Uhr
+                  </span>
+                </div>
+                <div class="text-lg font-extrabold text-white flex items-center gap-2">
+                  <span>🎉 ${m.opponent}</span>
+                </div>
+                ${m.address ? `
+                  <p class="text-xs text-slate-300 flex items-center gap-1 mt-1">
+                    <i data-lucide="map-pin" class="w-3 h-3 text-purple-400"></i> ${m.address}
+                  </p>
+                ` : ''}
+              </div>
+
+              <div class="flex items-center justify-between w-full sm:w-auto gap-3 border-t sm:border-t-0 border-purple-900/40 pt-3 sm:pt-0">
+                ${m.address ? `
+                  <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer" class="text-xs px-3 py-1.5 rounded-lg font-semibold bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-400/30 flex items-center gap-1 transition">
+                    <i data-lucide="map-pin" class="w-3.5 h-3.5"></i> Ort in Maps
+                  </a>
+                ` : ''}
+
+                <div class="flex items-center gap-1">
+                  <button onclick="downloadICS('${m.id}')" class="p-2 text-slate-300 hover:text-emerald-400 hover:bg-slate-700 rounded-lg transition" title="In Kalender eintragen">
+                    <i data-lucide="calendar-plus" class="w-4 h-4"></i>
+                  </button>
+                  <button onclick="editMatch('${m.id}')" class="p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg transition" title="Bearbeiten">
+                    <i data-lucide="edit-3" class="w-4 h-4"></i>
+                  </button>
+                  <button onclick="deleteMatch('${m.id}')" class="p-2 text-slate-300 hover:text-rose-400 hover:bg-slate-700 rounded-lg transition" title="Löschen">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+
+        const homeTeamName = m.isHome ? m.myTeam : m.opponent;
+        const awayTeamName = m.isHome ? m.opponent : m.myTeam;
+        const mapsUrl = m.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(m.address)}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(awayTeamName)}`;
+
+        const hasPartialScore = m.scoreHome !== null && m.scoreAway !== null && m.scoreHome !== "" && m.scoreAway !== "";
+
+        return `
+          <div class="bg-slate-900 border ${isRunning ? 'border-rose-500/60 shadow-rose-900/20' : isCup ? 'border-amber-500/40' : 'border-slate-700'} rounded-xl p-4 transition hover:border-slate-500 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-md">
+            <div class="space-y-1.5 flex-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                ${isRunning ? `
+                  <span class="text-xs px-2 py-0.5 rounded font-bold bg-rose-500/20 text-rose-400 border border-rose-500/40 flex items-center gap-1 animate-pulse">
+                    <span class="w-2 h-2 rounded-full bg-rose-500"></span> LIVE
+                  </span>
+                ` : ''}
+                ${isCup ? `
+                  <span class="text-xs px-2 py-0.5 rounded font-semibold bg-amber-400/20 text-amber-300 border border-amber-400/30 flex items-center gap-1">
+                    <i data-lucide="trophy" class="w-3 h-3 text-amber-400"></i> Pokal
+                  </span>
+                ` : ''}
+                <span class="text-xs px-2 py-0.5 rounded font-semibold ${m.isHome ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'}">
+                  ${m.isHome ? 'Heimspiel' : 'Auswärts'}
+                </span>
+
+                ${!m.isHome ? `
+                  <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer" class="text-xs px-2 py-0.5 rounded font-semibold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 transition">
+                    <i data-lucide="map-pin" class="w-3 h-3 text-emerald-400"></i> Anfahrt
+                  </a>
+                ` : ''}
+
+                <span class="text-xs text-slate-300 flex items-center gap-1">
+                  <i data-lucide="calendar" class="w-3.5 h-3.5"></i> ${formattedDate} Uhr
+                </span>
+                ${m.pin ? `
+                  <span class="text-xs px-2 py-0.5 rounded font-mono font-semibold bg-slate-800 text-amber-300 border border-slate-600 flex items-center gap-1">
+                    <i data-lucide="key-round" class="w-3 h-3 text-amber-400"></i> PIN: ${m.pin}
+                  </span>
+                ` : ''}
+                ${m.code ? `
+                  <span class="text-xs px-2 py-0.5 rounded font-mono font-semibold bg-slate-800 text-cyan-300 border border-slate-600 flex items-center gap-1">
+                    <i data-lucide="building-2" class="w-3 h-3 text-cyan-400"></i> ${m.code}
+                  </span>
+                ` : ''}
+              </div>
+
+              <div class="text-base font-bold text-white flex items-center gap-2">
+                <span class="${m.isHome ? 'text-emerald-400' : 'text-slate-100'}">${homeTeamName}</span>
+                <span class="text-slate-400 font-normal">vs</span>
+                <span class="${!m.isHome ? 'text-emerald-400' : 'text-slate-100'}">${awayTeamName}</span>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between w-full sm:w-auto gap-4 border-t sm:border-t-0 border-slate-800 pt-3 sm:pt-0">
+              ${isDone ? `
+                <div class="bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-600 font-mono text-lg font-bold tracking-wider ${isCup ? 'text-amber-400' : 'text-emerald-400'}">
+                  ${m.scoreHome} : ${m.scoreAway}
+                </div>
+              ` : isRunning ? `
+                <div class="flex items-center gap-2">
+                  <div class="bg-slate-800 px-3 py-1.5 rounded-lg border border-rose-500/50 font-mono text-lg font-bold tracking-wider text-rose-400">
+                    ${hasPartialScore ? `${m.scoreHome} : ${m.scoreAway}` : '0 : 0'}
+                  </div>
+                  <span class="text-[10px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/30 px-2 py-1 rounded-md animate-pulse">
+                    Läuft...
+                  </span>
+                </div>
+              ` : `
+                <span class="text-xs font-semibold text-amber-300 bg-amber-400/20 border border-amber-400/30 px-2.5 py-1 rounded-lg">
+                  Anstehend
+                </span>
+              `}
+
+              <div class="flex items-center gap-1">
+                <button onclick="downloadICS('${m.id}')" class="p-2 text-slate-300 hover:text-emerald-400 hover:bg-slate-700 rounded-lg transition" title="In Kalender eintragen">
+                  <i data-lucide="calendar-plus" class="w-4 h-4"></i>
+                </button>
+                <button onclick="editMatch('${m.id}')" class="p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg transition" title="Bearbeiten">
+                  <i data-lucide="edit-3" class="w-4 h-4"></i>
+                </button>
+                <button onclick="deleteMatch('${m.id}')" class="p-2 text-slate-300 hover:text-rose-400 hover:bg-slate-700 rounded-lg transition" title="Löschen">
+                  <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      lucide.createIcons();
+    }
+
+    function renderEvents() {
+      const container = document.getElementById('events-list');
+      const events = allMatches.filter(m => {
+        const type = m.matchType || (m.myTeam === 'Verein' ? 'event' : 'league');
+        return type === 'event';
+      });
+
+      // Events chronologisch absteigend sortieren
+      events.sort((a, b) => parseMatchDate(b.date) - parseMatchDate(a.date));
+
+      if (events.length === 0) {
+        container.innerHTML = `<div class="text-center py-10 text-slate-400 text-sm">Bisher wurden keine Vereinstermine eingetragen.</div>`;
+        return;
+      }
+
+      container.innerHTML = events.map(m => {
+        const matchDate = parseMatchDate(m.date);
+        const formattedDate = matchDate.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const mapsUrl = m.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(m.address)}` : '';
+
+        return `
+          <div class="bg-slate-800 border border-purple-500/40 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-md">
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-semibold px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-400/30 flex items-center gap-1">
+                  <i data-lucide="party-popper" class="w-3 h-3 text-purple-300"></i> Event
+                </span>
+                <span class="text-xs text-slate-300">
+                  ${formattedDate} Uhr
+                </span>
+              </div>
+              <div class="text-base font-bold text-white mt-1">
+                ${m.opponent}
+              </div>
+              ${m.address ? `
+                <p class="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                  <i data-lucide="map-pin" class="w-3 h-3 text-purple-400"></i> ${m.address}
+                </p>
+              ` : ''}
+            </div>
+
+            <div class="flex items-center justify-between w-full sm:w-auto gap-3">
+              ${m.address ? `
+                <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer" class="text-xs px-3 py-1.5 rounded-lg font-semibold bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-400/30 flex items-center gap-1 transition">
+                  <i data-lucide="map-pin" class="w-3.5 h-3.5"></i> Ort
+                </a>
+              ` : ''}
+
+              <button onclick="downloadICS('${m.id}')" class="p-2 text-slate-300 hover:text-emerald-400 hover:bg-slate-700 rounded-lg transition" title="In Kalender eintragen">
+                <i data-lucide="calendar-plus" class="w-4 h-4"></i>
+              </button>
+              <button onclick="editMatch('${m.id}')" class="p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg transition" title="Bearbeiten">
+                <i data-lucide="edit-3" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      lucide.createIcons();
+    }
+
+    function renderStandings() {
+      const tbody = document.getElementById('standings-table-body');
+      const cardsContainer = document.getElementById('standings-cards-container');
+      
+      const usedTeams = new Set(defaultTeams);
+      const leagueMatches = allMatches.filter(m => {
+        const type = m.matchType || (m.myTeam === 'Verein' ? 'event' : 'league');
+        return type === 'league' && m.myTeam !== 'Verein';
+      });
+
+      leagueMatches.forEach(m => {
+        if (m.myTeam) usedTeams.add(m.myTeam);
+      });
+
+      const stats = {};
+      usedTeams.forEach(team => {
+        stats[team] = { played: 0, wins: 0, draws: 0, losses: 0, gamesWon: 0, gamesLost: 0, plusPoints: 0, minusPoints: 0 };
+      });
+
+      leagueMatches.forEach(m => {
+        if (isMatchCompleted(m)) {
+          const team = m.myTeam;
+          if (!stats[team]) return;
+
+          stats[team].played += 1;
+          const myScore = m.isHome ? parseInt(m.scoreHome) : parseInt(m.scoreAway);
+          const oppScore = m.isHome ? parseInt(m.scoreAway) : parseInt(m.scoreHome);
+
+          stats[team].gamesWon += myScore;
+          stats[team].gamesLost += oppScore;
+
+          if (myScore > oppScore) {
+            stats[team].wins += 1;
+            stats[team].plusPoints += 2;
+          } else if (myScore === oppScore) {
+            stats[team].draws += 1;
+            stats[team].plusPoints += 1;
+            stats[team].minusPoints += 1;
+          } else {
+            stats[team].losses += 1;
+            stats[team].minusPoints += 2;
+          }
+        }
+      });
+
+      const sortedStats = Object.keys(stats).map(team => ({ team, ...stats[team] })).sort((a, b) => {
+        let idxA = defaultTeams.indexOf(a.team);
+        let idxB = defaultTeams.indexOf(b.team);
+        if (idxA === -1) idxA = 99;
+        if (idxB === -1) idxB = 99;
+        if (idxA !== idxB) return idxA - idxB;
+        return a.team.localeCompare(b.team);
+      });
+
+      cardsContainer.innerHTML = sortedStats.map(s => {
+        const links = teamLinks[s.team] || { table: '#', players: '#' };
+        const tableUrl = links.table || '#';
+        const playersUrl = links.players || '#';
+        const punkteFormatted = `${s.plusPoints}:${s.minusPoints}`;
+
+        return `
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-3.5 space-y-3 shadow-md">
+          <div class="flex items-center justify-between border-b border-slate-700 pb-2">
+            <a href="${tableUrl}" target="_blank" rel="noopener noreferrer" class="font-bold text-white text-base flex items-center gap-2 hover:text-emerald-400 transition group">
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span> ${s.team}
+              <i data-lucide="external-link" class="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-400"></i>
+            </a>
+            <div class="bg-emerald-500/20 border border-emerald-500/30 px-3 py-1 rounded-lg flex items-center gap-1.5">
+              <span class="text-[10px] text-emerald-300 font-semibold uppercase">Punkte</span>
+              <span class="text-base font-black text-emerald-400 font-mono">${punkteFormatted}</span>
+            </div>
+          </div>
+
+          <div class="flex justify-between items-center bg-slate-900/60 p-2 rounded-lg border border-slate-700/60">
+            <span class="text-xs text-slate-300 font-medium">Einzelbilanzen:</span>
+            <a href="${playersUrl}" target="_blank" rel="noopener noreferrer" class="text-xs px-2.5 py-1 rounded-md font-semibold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 transition">
+              <span>Spielerbilanz</span>
+              <i data-lucide="external-link" class="w-3 h-3"></i>
+            </a>
+          </div>
+
+          <div class="grid grid-cols-5 gap-1 bg-slate-700 p-2.5 rounded-lg text-center font-mono text-xs items-center border border-slate-600">
+            <div class="col-span-1 border-r border-slate-600 pr-1">
+              <span class="text-[10px] text-slate-300 block font-sans">Spiele</span>
+              <span class="text-white font-bold text-sm mt-0.5 block">${s.played}</span>
+            </div>
+            <div class="col-span-3 px-1">
+              <div class="grid grid-cols-5 text-center items-center">
+                <span class="text-[10px] text-slate-300 font-sans">S</span>
+                <span class="text-[10px] text-slate-500 font-sans">-</span>
+                <span class="text-[10px] text-slate-300 font-sans">U</span>
+                <span class="text-[10px] text-slate-500 font-sans">-</span>
+                <span class="text-[10px] text-slate-300 font-sans">N</span>
+                <span class="text-white font-semibold text-xs mt-0.5">${s.wins}</span>
+                <span class="text-slate-400 text-xs mt-0.5">-</span>
+                <span class="text-white font-semibold text-xs mt-0.5">${s.draws}</span>
+                <span class="text-slate-400 text-xs mt-0.5">-</span>
+                <span class="text-white font-semibold text-xs mt-0.5">${s.losses}</span>
+              </div>
+            </div>
+            <div class="col-span-1 border-l border-slate-600 pl-1">
+              <span class="text-[10px] text-slate-300 block font-sans">Verhältnis</span>
+              <span class="text-white font-bold text-xs mt-0.5 block">${s.gamesWon}:${s.gamesLost}</span>
+            </div>
+          </div>
+        </div>
+      `;
+      }).join('');
+
+      tbody.innerHTML = sortedStats.map(s => {
+        const links = teamLinks[s.team] || { table: '#', players: '#' };
+        const tableUrl = links.table || '#';
+        const playersUrl = links.players || '#';
+        const punkteFormatted = `${s.plusPoints}:${s.minusPoints}`;
+
+        return `
+        <tr class="hover:bg-slate-800 transition">
+          <td class="py-3 px-3 font-semibold text-white">
+            <a href="${tableUrl}" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 hover:text-emerald-400 transition group">
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span> ${s.team}
+              <i data-lucide="external-link" class="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-400"></i>
+            </a>
+          </td>
+          <td class="py-3 px-2 text-center">
+            <a href="${playersUrl}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-md font-medium bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 transition">
+              <span>Spielerbilanz</span>
+              <i data-lucide="external-link" class="w-3 h-3"></i>
+            </a>
+          </td>
+          <td class="py-3 px-2 text-center text-slate-200 font-mono">${s.played}</td>
+          <td class="py-3 px-2 text-center text-slate-300 text-xs font-mono">${s.wins} - ${s.draws} - ${s.losses}</td>
+          <td class="py-3 px-2 text-center text-slate-200 font-mono">${s.gamesWon}:${s.gamesLost}</td>
+          <td class="py-3 px-2 text-center font-bold text-emerald-400 font-mono text-base">${punkteFormatted}</td>
+        </tr>
+      `;
+      }).join('');
+
+      lucide.createIcons();
+    }
+
+    function renderCupMatches() {
+      const container = document.getElementById('cup-matches-list');
+      let cupMatches = allMatches.filter(m => {
+        const type = m.matchType || (m.myTeam === 'Verein' ? 'event' : 'league');
+        return type === 'cup';
+      });
+
+      if (selectedTeamFilter !== 'ALL') {
+        cupMatches = cupMatches.filter(m => m.myTeam === selectedTeamFilter);
+      }
+
+      // Pokalspiele chronologisch absteigend sortieren
+      cupMatches.sort((a, b) => parseMatchDate(b.date) - parseMatchDate(a.date));
+
+      if (cupMatches.length === 0) {
+        container.innerHTML = `<div class="text-center py-10 text-slate-400 text-sm">Bisher wurden keine Pokalspiele eingetragen.</div>`;
+        return;
+      }
+
+      container.innerHTML = cupMatches.map(m => {
+        const isDone = isMatchCompleted(m);
+        const matchDate = parseMatchDate(m.date);
+        const formattedDate = matchDate.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const homeTeamName = m.isHome ? m.myTeam : m.opponent;
+        const awayTeamName = m.isHome ? m.opponent : m.myTeam;
+        const myScore = m.isHome ? parseInt(m.scoreHome) : parseInt(m.scoreAway);
+        const oppScore = m.isHome ? parseInt(m.scoreAway) : parseInt(m.scoreHome);
+
+        let resultBadge = '';
+        if (isDone) {
+          resultBadge = myScore > oppScore 
+            ? `<span class="px-2.5 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-lg text-xs font-bold">Gewonnen</span>`
+            : `<span class="px-2.5 py-1 bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-bold">Verloren</span>`;
+        }
+
+        return `
+          <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-md">
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-semibold px-2 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/30">${m.myTeam}</span>
+                <span class="text-xs text-slate-300">${formattedDate} Uhr</span>
+              </div>
+              <div class="text-base font-bold text-white mt-1">${homeTeamName} vs ${awayTeamName}</div>
+            </div>
+
+            <div class="flex items-center justify-between w-full sm:w-auto gap-3">
+              ${isDone ? `
+                <div class="flex items-center gap-3">
+                  ${resultBadge}
+                  <div class="bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-700 font-mono text-base font-bold text-amber-400">
+                    ${m.scoreHome} : ${m.scoreAway}
+                  </div>
+                </div>
+              ` : `
+                <span class="text-xs font-semibold text-amber-300 bg-amber-400/10 border border-amber-400/20 px-2.5 py-1 rounded-lg">Anstehend</span>
+              `}
+              <button onclick="downloadICS('${m.id}')" class="p-2 text-slate-300 hover:text-emerald-400 hover:bg-slate-700 rounded-lg transition" title="In Kalender eintragen">
+                <i data-lucide="calendar-plus" class="w-4 h-4"></i>
+              </button>
+              <button onclick="editMatch('${m.id}')" class="p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg transition"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      lucide.createIcons();
+    }
+
+    function openTeamLinksModal() {
+      const container = document.getElementById('team-links-form-container');
+      const allTeamNames = new Set(defaultTeams);
+      allMatches.forEach(m => {
+        if (m.myTeam && m.myTeam !== 'Verein') allTeamNames.add(m.myTeam);
+      });
+
+      container.innerHTML = Array.from(allTeamNames).sort().map(team => {
+        const links = teamLinks[team] || { table: '', players: '' };
+        return `
+          <div class="bg-slate-900 p-3.5 rounded-xl border border-slate-700 space-y-2.5">
+            <div class="font-bold text-emerald-400 text-sm">${team}</div>
+            <div class="space-y-1">
+              <label class="text-[11px] text-slate-300">1. Link für Mannschaft / Tabelle (Klick auf Name)</label>
+              <input type="url" id="link-table-${encodeURIComponent(team)}" value="${links.table || ''}" placeholder="https://www.mytischtennis.de/.../tabelle/gesamt/" class="w-full bg-slate-800 border border-slate-600 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[11px] text-slate-300">2. Link für Spielerbilanz (Klick auf Button)</label>
+              <input type="url" id="link-players-${encodeURIComponent(team)}" value="${links.players || ''}" placeholder="https://www.mytischtennis.de/.../bilanzen/gesamt/" class="w-full bg-slate-800 border border-slate-600 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('team-links-modal').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeTeamLinksModal() {
+      document.getElementById('team-links-modal').classList.add('hidden');
+    }
+
+    async function saveTeamLinks(e) {
+      e.preventDefault();
+      const allTeamNames = new Set(defaultTeams);
+      allMatches.forEach(m => {
+        if (m.myTeam && m.myTeam !== 'Verein') allTeamNames.add(m.myTeam);
+      });
+
+      allTeamNames.forEach(team => {
+        const tableInput = document.getElementById(`link-table-${encodeURIComponent(team)}`);
+        const playersInput = document.getElementById(`link-players-${encodeURIComponent(team)}`);
+        
+        teamLinks[team] = {
+          table: tableInput ? tableInput.value.trim() : '',
+          players: playersInput ? playersInput.value.trim() : ''
+        };
+      });
+
+      if (isFirebaseConnected && db) {
+        try {
+          await db.collection('settings').doc('teamLinks').set({ links: teamLinks });
+        } catch (err) {
+          console.warn("Fehler beim Speichern der Links in Firebase:", err);
+        }
+      } else {
+        localStorage.setItem('tt_team_links_v2', JSON.stringify(teamLinks));
+      }
+
+      closeTeamLinksModal();
+      renderStandings();
+    }
+
+    function handleTeamSelectChange(select) {
+      const customInput = document.getElementById('custom-team');
+      if (select.value === '__NEW__') {
+        customInput.classList.remove('hidden');
+        customInput.required = true;
+      } else {
+        customInput.classList.add('hidden');
+        customInput.required = false;
+      }
+    }
+
+    function openAddMatchModal() {
+      document.getElementById('match-id').value = '';
+      document.getElementById('match-form').reset();
+      document.getElementById('match-type').value = 'league';
+      
+      const teamSelect = document.getElementById('my-team');
+      const customInput = document.getElementById('custom-team');
+      
+      if (selectedTeamFilter && selectedTeamFilter !== 'ALL') {
+        const optionExists = Array.from(teamSelect.options).some(opt => opt.value === selectedTeamFilter);
+        if (optionExists) {
+          teamSelect.value = selectedTeamFilter;
+        } else {
+          teamSelect.value = '1. Mannschaft';
+        }
+      } else {
+        teamSelect.value = '1. Mannschaft';
+      }
+
+      customInput.classList.add('hidden');
+      customInput.required = false;
+      document.getElementById('modal-title').textContent = 'Neuen Eintrag anlegen';
+      toggleFormFields();
+      document.getElementById('match-modal').classList.remove('hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('match-modal').classList.add('hidden');
+    }
+
+    function editMatch(id) {
+      const m = allMatches.find(item => item.id === id);
+      if (!m) return;
+
+      const matchType = m.matchType || (m.myTeam === 'Verein' ? 'event' : 'league');
+      document.getElementById('match-id').value = m.id;
+      document.getElementById('match-type').value = matchType;
+      toggleFormFields();
+
+      if (matchType !== 'event') {
+        const select = document.getElementById('my-team');
+        const customInput = document.getElementById('custom-team');
+        const options = Array.from(select.options).map(o => o.value);
+        if (options.includes(m.myTeam)) {
+          select.value = m.myTeam;
+          customInput.classList.add('hidden');
+          customInput.required = false;
+        } else {
+          select.value = '__NEW__';
+          customInput.value = m.myTeam;
+          customInput.classList.remove('hidden');
+          customInput.required = true;
+        }
+        document.getElementById('is-home').value = m.isHome ? "true" : "false";
+        document.getElementById('match-pin').value = m.pin || '';
+        document.getElementById('match-code').value = m.code || '';
+        document.getElementById('score-home').value = m.scoreHome !== null ? m.scoreHome : '';
+        document.getElementById('score-away').value = m.scoreAway !== null ? m.scoreAway : '';
+      }
+
+      document.getElementById('opponent').value = m.opponent;
+      document.getElementById('match-date').value = m.date;
+      document.getElementById('match-address').value = m.address || '';
+
+      document.getElementById('modal-title').textContent = 'Eintrag bearbeiten';
+      document.getElementById('match-modal').classList.remove('hidden');
+    }
+
+    async function saveMatch(e) {
+      e.preventDefault();
+      const id = document.getElementById('match-id').value;
+      const matchType = document.getElementById('match-type').value;
+      const selectVal = document.getElementById('my-team').value;
+      const isEvent = matchType === 'event';
+      
+      let myTeam = isEvent ? 'Verein' : selectVal;
+      if (!isEvent && selectVal === '__NEW__') {
+        myTeam = document.getElementById('custom-team').value.trim();
+      }
+
+      const opponent = document.getElementById('opponent').value.trim();
+      const date = document.getElementById('match-date').value;
+      const isHome = isEvent ? true : document.getElementById('is-home').value === "true";
+      const address = document.getElementById('match-address').value.trim();
+      const pin = isEvent ? '' : document.getElementById('match-pin').value.trim();
+      const code = isEvent ? '' : document.getElementById('match-code').value.trim();
+      
+      const sHome = isEvent ? '' : document.getElementById('score-home').value;
+      const sAway = isEvent ? '' : document.getElementById('score-away').value;
+
+      const data = {
+        matchType,
+        myTeam,
+        opponent,
+        date,
+        isHome,
+        address,
+        pin,
+        code,
+        scoreHome: sHome !== "" ? parseInt(sHome) : null,
+        scoreAway: sAway !== "" ? parseInt(sAway) : null
+      };
+
+      if (isFirebaseConnected && db) {
+        if (id) {
+          await db.collection('matches').doc(id).update(data);
+        } else {
+          await db.collection('matches').add(data);
+        }
+      } else {
+        if (id) {
+          const idx = allMatches.findIndex(m => m.id === id);
+          if (idx !== -1) allMatches[idx] = { id, ...data };
+        } else {
+          allMatches.push({ id: Date.now().toString(), ...data });
+        }
+        saveLocal();
+        sortMatchesChronologically();
+        updateTeamDropdownOptions();
+        updateStats();
+        renderEventsBanner();
+        renderMatches();
+        renderStandings();
+        renderCupMatches();
+        renderEvents();
+      }
+
+      closeModal();
+    }
+
+    async function deleteMatch(id) {
+      if (!confirm('Möchtest du diesen Eintrag wirklich löschen?')) return;
+      
+      if (isFirebaseConnected && db) {
+        await db.collection('matches').doc(id).delete();
+      } else {
+        allMatches = allMatches.filter(m => m.id !== id);
+        saveLocal();
+        sortMatchesChronologically();
+        updateTeamDropdownOptions();
+        updateStats();
+        renderEventsBanner();
+        renderMatches();
+        renderStandings();
+        renderCupMatches();
+        renderEvents();
+      }
+    }
+
+    function downloadICS(matchId) {
+      const m = allMatches.find(item => item.id === matchId);
+      if (!m) return;
+
+      const matchDate = parseMatchDate(m.date);
+      const startDate = matchDate.toISOString().replace(/-|:|\.\d\d\d/g, "");
+      const endDate = new Date(matchDate.getTime() + 2 * 60 * 60 * 1000)
+        .toISOString()
+        .replace(/-|:|\.\d\d\d/g, "");
+
+      const summary = `${m.myTeam} vs. ${m.opponent}`;
+      const description = `Spiel-PIN: ${m.pin || 'Keine'} | Code/Spiellokal: ${m.code || 'Keiner'}`;
+      const location = m.address || (m.isHome ? 'Heimspiel' : 'Auswärts');
+
+      const icsData = 
+`BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//VfR 07 Limburg Tischtennis//DE
+BEGIN:VEVENT
+SUMMARY:${summary}
+DESCRIPTION:${description}
+LOCATION:${location}
+DTSTART:${startDate}
+DTEND:${endDate}
+END:VEVENT
+END:VCALENDAR`;
+
+      const blob = new Blob([icsData], { type: 'text/calendar;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = window.URL.createObjectURL(blob);
+      link.setAttribute('download', `${summary}.ics`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    function shareWhatsApp() {
+      const appUrl = "https://tischtennis07.vercel.app";
+      const shareText = "🏓 *VfR 07 Limburg - Tischtennis Spielplan & Termine (Saison 2026/27)* 🏓\n\nHier findest du alle aktuellen Spiele, Termine, Anfahrten, Ergebnisse und Bilanzen:\n" + appUrl;
+
+      if (navigator.share) {
+        navigator.share({ title: 'VfR 07 Limburg Tischtennis', text: shareText }).catch(() => {});
+      } else {
+        const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
+        window.open(url, '_blank');
+      }
+    }
+
+    /* AUTOMATISCHER SYNC BEIM ENTSPERREN / TAB-WECHSEL (Für Smartphone & Tablet) */
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        if (isFirebaseConnected && db) {
+          db.collection('matches').get().then(snapshot => {
+            allMatches = [];
+            snapshot.forEach(doc => allMatches.push({ id: doc.id, ...doc.data() }));
+            sortMatchesChronologically();
+            updateStats();
+            renderEventsBanner();
+            renderMatches();
+            renderStandings();
+            renderCupMatches();
+            renderEvents();
+          }).catch(() => {});
+        }
+      }
+    });
+
+    /* Automatischer Timer: Aktualisiert alle 60 Sekunden die Ansicht */
+    setInterval(() => {
+      if (currentTab === 'matches') {
+        renderMatches();
+      }
+    }, 60000);
+
+    lucide.createIcons();
+  </script>
+</body>
+</html>
