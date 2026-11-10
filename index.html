@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TT-Verein Live - VfR 07 Limburg (Saison 2026/27)</title>
+  <title>TT-Verein Live - VfR 07 Limburg</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <!-- Firebase SDKs -->
@@ -32,7 +32,7 @@
               <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> Verbinde...
             </span>
           </div>
-          <p class="text-xs text-slate-300">Spielplan & Live-Ergebnisse • <span class="text-emerald-400 font-semibold">Saison 2026/27</span></p>
+          <p class="text-xs text-slate-300">Spielplan & Live-Ergebnisse • <span class="season-text text-emerald-400 font-semibold">Saison ...</span></p>
         </div>
       </div>
       
@@ -124,7 +124,7 @@
           <div>
             <h2 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
               <i data-lucide="bar-chart-2" class="w-5 h-5 text-emerald-400"></i>
-              Bilanzen (Saison 2026/27)
+              Bilanzen (<span class="season-text">Saison ...</span>)
             </h2>
             <p class="text-xs text-slate-300 mt-0.5">Berechnet aus allen beendeten Meisterschaftsspielen (ohne Pokal)</p>
           </div>
@@ -160,7 +160,7 @@
           <div>
             <h2 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
               <i data-lucide="trophy" class="w-5 h-5 text-amber-400"></i>
-              Pokal (Saison 2026/27)
+              Pokal (<span class="season-text">Saison ...</span>)
             </h2>
             <p class="text-xs text-slate-300 mt-0.5">Übersicht aller Pokalspiele. Ergebnisse fließen nicht in die Gesamtbilanz ein.</p>
           </div>
@@ -318,6 +318,27 @@
   </div>
 
   <script>
+    /* AUTOMATISCHER SAISON-TITEL (Wechsel jeweils zum 15. Juli) */
+    (function updateSeasonTitle() {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth(); // 0 = Jan, ..., 6 = Juli
+      const day = now.getDate();
+
+      let startYear = (month > 6 || (month === 6 && day >= 15)) ? year : year - 1;
+      let endYear = startYear + 1;
+      let shortEnd = String(endYear).slice(-2);
+      let seasonString = `Saison ${startYear}/${shortEnd}`;
+
+      // Browsertitel anpassen
+      document.title = `TT-Verein Live - VfR 07 Limburg (${seasonString})`;
+
+      // Alle Elemente mit der Klasse 'season-text' auf der Seite anpassen
+      document.querySelectorAll('.season-text').forEach(el => {
+        el.textContent = seasonString;
+      });
+    })();
+
     const firebaseConfig = {
       apiKey: "AIzaSyBtH6B6UZ8Ce-9LnxKnwJivclLnFzsziIQ",
       authDomain: "tischtennis-spiele.firebaseapp.com",
@@ -1439,7 +1460,7 @@ END:VCALENDAR`;
 
     function shareWhatsApp() {
       const appUrl = "https://vfr07tischtennis.vercel.app/";
-      const shareText = "🏓 *VfR 07 Limburg - Tischtennis Spielplan & Termine (Saison 2026/27)* 🏓\n\nHier findest du alle aktuellen Spiele, Termine, Anfahrten, Ergebnisse und Bilanzen:\n" + appUrl;
+      const shareText = "🏓 *VfR 07 Limburg - Tischtennis Spielplan & Termine* 🏓\n\nHier findest du alle aktuellen Spiele, Termine, Anfahrten, Ergebnisse und Bilanzen:\n" + appUrl;
 
       if (navigator.share) {
         navigator.share({ title: 'VfR 07 Limburg Tischtennis', text: shareText }).catch(() => {});
