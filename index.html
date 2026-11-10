@@ -43,6 +43,9 @@
         <button onclick="openAddMatchModal()" class="flex-1 sm:flex-none bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-semibold px-4 py-2.5 rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 text-sm">
           <i data-lucide="plus-circle" class="w-4 h-4"></i> Eintrag anlegen
         </button>
+        <button onclick="openSeasonAdminModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 p-2.5 rounded-xl transition" title="Saison verwalten / archivieren">
+          <i data-lucide="archive" class="w-4 h-4"></i>
+        </button>
       </div>
     </header>
 
@@ -317,9 +320,39 @@
     </div>
   </div>
 
+  <!-- Modal: Saisonverwaltung & Archivierung -->
+  <div id="season-admin-modal" class="hidden fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-slate-800 border border-slate-600 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+        <h3 class="font-bold text-lg text-white flex items-center gap-2">
+          <i data-lucide="archive" class="w-5 h-5 text-amber-400"></i> Saison verwalten
+        </h3>
+        <button onclick="closeSeasonAdminModal()" class="text-slate-300 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <div class="space-y-3 text-sm text-slate-300">
+        <p>Hier kannst du die aktuell laufende Saison abschließen. Alle bisherigen Spiele & Ergebnisse werden im Archiv gespeichert.</p>
+        
+        <div class="bg-slate-900 p-3 rounded-xl border border-slate-700">
+          <span class="text-xs text-slate-400 block">Aktuell aktive Saison:</span>
+          <span id="current-active-season-label" class="text-base font-bold text-emerald-400">Saison ...</span>
+        </div>
+      </div>
+
+      <div class="pt-2 flex flex-col gap-2">
+        <button onclick="archiveAndStartNewSeason()" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-3 rounded-xl shadow-lg transition flex items-center justify-center gap-2 text-sm">
+          <i data-lucide="check-circle-2" class="w-4 h-4"></i> Saison beenden & Neue Saison starten
+        </button>
+        <button onclick="closeSeasonAdminModal()" class="w-full bg-slate-700 hover:bg-slate-600 py-2.5 rounded-xl text-sm font-semibold text-slate-200 border border-slate-600">
+          Abbrechen
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script>
     /* AUTOMATISCHER SAISON-TITEL (Wechsel jeweils zum 15. Juli) */
-    (function updateSeasonTitle() {
+    function getCurrentSeasonString() {
       const now = new Date();
       const year = now.getFullYear();
       const month = now.getMonth(); // 0 = Jan, ..., 6 = Juli
@@ -328,7 +361,11 @@
       let startYear = (month > 6 || (month === 6 && day >= 15)) ? year : year - 1;
       let endYear = startYear + 1;
       let shortEnd = String(endYear).slice(-2);
-      let seasonString = `Saison ${startYear}/${shortEnd}`;
+      return `Saison ${startYear}/${shortEnd}`;
+    }
+
+    (function updateSeasonTitle() {
+      const seasonString = getCurrentSeasonString();
 
       // Browsertitel anpassen
       document.title = `TT-Verein Live - VfR 07 Limburg (${seasonString})`;
@@ -338,6 +375,44 @@
         el.textContent = seasonString;
       });
     })();
+
+    /* SAISONVERWALTUNG MODAL FUNKTIONEN */
+    function openSeasonAdminModal() {
+      const currentSeasonStr = getCurrentSeasonString();
+      const activeLabel = document.getElementById('current-active-season-label');
+      if (activeLabel) activeLabel.textContent = currentSeasonStr;
+      document.getElementById('season-admin-modal').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeSeasonAdminModal() {
+      document.getElementById('season-admin-modal').classList.add('hidden');
+    }
+
+    async function archiveAndStartNewSeason() {
+      const currentSeasonStr = getCurrentSeasonString();
+      if (!confirm(`Möchtest du die ${currentSeasonStr} wirklich abschließen und für die neue Saison zurücksetzen?`)) return;
+
+      try {
+        if (isFirebaseConnected && db) {
+          const batch = db.batch();
+          allMatches.forEach(match => {
+            const ref = db.collection('matches').doc(match.id);
+            batch.update(ref, { season: currentSeasonStr, archived: true });
+          });
+          await batch.commit();
+        } else {
+          allMatches = allMatches.map(m => ({ ...m, season: currentSeasonStr, archived: true }));
+          saveLocal();
+        }
+        alert(`Die ${currentSeasonStr} wurde erfolgreich archiviert!`);
+        closeSeasonAdminModal();
+        location.reload();
+      } catch (err) {
+        console.error("Fehler beim Archivieren:", err);
+        alert("Fehler beim Speichern der Archiv-Daten.");
+      }
+    }
 
     const firebaseConfig = {
       apiKey: "AIzaSyBtH6B6UZ8Ce-9LnxKnwJivclLnFzsziIQ",
@@ -548,13 +623,13 @@
     }
 
     function updateStats() {
-      let filtered = allMatches;
+      let filtered = allMatches.filter(m => !m.archived);
 
       const upcomingLabel = document.getElementById('stat-upcoming-label');
       const completedLabel = document.getElementById('stat-completed-label');
 
       if (selectedTeamFilter && selectedTeamFilter !== 'ALL') {
-        filtered = allMatches.filter(m => m.myTeam === selectedTeamFilter);
+        filtered = filtered.filter(m => m.myTeam === selectedTeamFilter);
         upcomingLabel.textContent = `Anstehend (${selectedTeamFilter})`;
         completedLabel.textContent = `Gespielt (${selectedTeamFilter})`;
       } else {
@@ -740,7 +815,7 @@
 
     function renderMatches() {
       const container = document.getElementById('matches-list');
-      let filtered = [...allMatches];
+      let filtered = allMatches.filter(m => !m.archived);
 
       if (selectedTeamFilter !== 'ALL') {
         filtered = filtered.filter(m => {
@@ -758,12 +833,10 @@
         filtered = filtered.filter(m => isMatchCompleted(m));
       }
 
-      // 2. NEU: Dynamische Sortierung je nach Filter
+      // 2. Dynamische Sortierung je nach Filter
       if (currentFilter === 'completed' || currentFilter === 'all') {
-        // Bei "Beendet" & "Alle": Neueste Spiele ganz OBERHALB, älteste UNTEN (absteigend)
         filtered.sort((a, b) => parseMatchDate(b.date) - parseMatchDate(a.date));
       } else {
-        // Bei "Live" & "Anstehend": Nächste/älteste Spiele OBERHALB, spätere UNTEN (aufsteigend)
         filtered.sort((a, b) => parseMatchDate(a.date) - parseMatchDate(b.date));
       }
 
@@ -933,10 +1006,9 @@
       const container = document.getElementById('events-list');
       const events = allMatches.filter(m => {
         const type = m.matchType || (m.myTeam === 'Verein' ? 'event' : 'league');
-        return type === 'event';
+        return type === 'event' && !m.archived;
       });
 
-      // Events chronologisch absteigend sortieren
       events.sort((a, b) => parseMatchDate(b.date) - parseMatchDate(a.date));
 
       if (events.length === 0) {
@@ -998,7 +1070,7 @@
       const usedTeams = new Set(defaultTeams);
       const leagueMatches = allMatches.filter(m => {
         const type = m.matchType || (m.myTeam === 'Verein' ? 'event' : 'league');
-        return type === 'league' && m.myTeam !== 'Verein';
+        return type === 'league' && m.myTeam !== 'Verein' && !m.archived;
       });
 
       leagueMatches.forEach(m => {
@@ -1135,14 +1207,13 @@
       const container = document.getElementById('cup-matches-list');
       let cupMatches = allMatches.filter(m => {
         const type = m.matchType || (m.myTeam === 'Verein' ? 'event' : 'league');
-        return type === 'cup';
+        return type === 'cup' && !m.archived;
       });
 
       if (selectedTeamFilter !== 'ALL') {
         cupMatches = cupMatches.filter(m => m.myTeam === selectedTeamFilter);
       }
 
-      // Pokalspiele chronologisch absteigend sortieren
       cupMatches.sort((a, b) => parseMatchDate(b.date) - parseMatchDate(a.date));
 
       if (cupMatches.length === 0) {
@@ -1373,7 +1444,8 @@
         pin,
         code,
         scoreHome: sHome !== "" ? parseInt(sHome) : null,
-        scoreAway: sAway !== "" ? parseInt(sAway) : null
+        scoreAway: sAway !== "" ? parseInt(sAway) : null,
+        archived: false
       };
 
       if (isFirebaseConnected && db) {
