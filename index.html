@@ -306,7 +306,7 @@
               <span class="text-[10px] text-slate-400">Optional</span>
             </label>
             <div class="relative mt-1">
-              <input type="text" id="match-code" placeholder="z.B. Halle 1" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 pl-8 text-sm text-white font-mono tracking-wider focus:outline-none focus:border-emerald-500">
+              <input type="text" id="match-code" placeholder="z.B. Spiellokal 1" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 pl-8 text-sm text-white font-mono tracking-wider focus:outline-none focus:border-emerald-500">
               <i data-lucide="building-2" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-3"></i>
             </div>
           </div>
@@ -558,10 +558,10 @@
             const matchType = isCup ? 'cup' : 'league';
             const round = isCup ? '' : (rundeRaw === 'RR' ? 'RR' : 'VR');
 
-            // Spiellokal / Hallen-Nummer aus HalleNr übernehmen
+            // Spiellokal / Hallen-Nummer aus HalleNr übernehmen ("Spiellokal 1", "Spiellokal 2", ...)
             const rawHalleNr = iHalleNr !== -1 ? (cols[iHalleNr] || '').trim() : '';
             const cleanHalleNr = rawHalleNr ? rawHalleNr.replace(/\.0$/, '') : '';
-            const code = cleanHalleNr ? `Halle ${cleanHalleNr}` : '';
+            const code = cleanHalleNr ? `Spiellokal ${cleanHalleNr}` : '';
 
             // Adresse zusammenbauen
             const addrParts = [
@@ -838,8 +838,8 @@
         allMatches = JSON.parse(localData);
       } else {
         allMatches = [
-          { id: '1', matchType: "league", round: "VR", myTeam: "1. Mannschaft", opponent: "TTC Elz II", date: "2026-11-15T19:30", isHome: true, pin: "4821", code: "Halle 1", address: "", scoreHome: null, scoreAway: null },
-          { id: '2', matchType: "league", round: "VR", myTeam: "2. Mannschaft", opponent: "TG Camberg", date: "2026-11-10T20:00", isHome: false, pin: "", code: "Halle 2", address: "Turnhalle Camberg", scoreHome: 6, scoreAway: 4 }
+          { id: '1', matchType: "league", round: "VR", myTeam: "1. Mannschaft", opponent: "TTC Elz II", date: "2026-11-15T19:30", isHome: true, pin: "4821", code: "Spiellokal 1", address: "", scoreHome: null, scoreAway: null },
+          { id: '2', matchType: "league", round: "VR", myTeam: "2. Mannschaft", opponent: "TG Camberg", date: "2026-11-10T20:00", isHome: false, pin: "", code: "Spiellokal 2", address: "Turnhalle Camberg", scoreHome: 6, scoreAway: 4 }
         ];
         saveLocal();
       }
@@ -899,8 +899,8 @@
 
     async function seedInitialData() {
       const demoMatches = [
-        { matchType: "league", round: "VR", myTeam: "1. Mannschaft", opponent: "TTC Elz II", date: "2026-11-15T19:30", isHome: true, pin: "4821", code: "Halle 1", address: "", scoreHome: null, scoreAway: null },
-        { matchType: "league", round: "VR", myTeam: "2. Mannschaft", opponent: "TG Camberg", date: "2026-11-10T20:00", isHome: false, pin: "", code: "Halle 2", address: "Turnhalle Camberg", scoreHome: 6, scoreAway: 4 }
+        { matchType: "league", round: "VR", myTeam: "1. Mannschaft", opponent: "TTC Elz II", date: "2026-11-15T19:30", isHome: true, pin: "4821", code: "Spiellokal 1", address: "", scoreHome: null, scoreAway: null },
+        { matchType: "league", round: "VR", myTeam: "2. Mannschaft", opponent: "TG Camberg", date: "2026-11-10T20:00", isHome: false, pin: "", code: "Spiellokal 2", address: "Turnhalle Camberg", scoreHome: 6, scoreAway: 4 }
       ];
       for (const m of demoMatches) {
         await db.collection('matches').add(m);
