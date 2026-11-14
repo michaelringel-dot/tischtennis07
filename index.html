@@ -803,11 +803,6 @@
         updateStatusBadge(true);
         initOnlinePresence();
 
-        if (snapshot.empty) {
-          seedInitialData();
-          return;
-        }
-
         allMatches = [];
         snapshot.forEach(doc => {
           allMatches.push({ id: doc.id, ...doc.data() });
@@ -842,11 +837,7 @@
       if (localData) {
         allMatches = JSON.parse(localData);
       } else {
-        allMatches = [
-          { id: '1', matchType: "league", round: "VR", myTeam: "1. Mannschaft", opponent: "TTC Elz II", date: "2026-11-15T19:30", isHome: true, pin: "4821", code: "Spiellokal 1", address: "", scoreHome: null, scoreAway: null },
-          { id: '2', matchType: "league", round: "VR", myTeam: "2. Mannschaft", opponent: "TG Camberg", date: "2026-11-10T20:00", isHome: false, pin: "", code: "Spiellokal 2", address: "Turnhalle Camberg", scoreHome: 6, scoreAway: 4 }
-        ];
-        saveLocal();
+        allMatches = [];
       }
       sortMatchesChronologically();
       updateTeamDropdownOptions();
@@ -903,13 +894,7 @@
     }
 
     async function seedInitialData() {
-      const demoMatches = [
-        { matchType: "league", round: "VR", myTeam: "1. Mannschaft", opponent: "TTC Elz II", date: "2026-11-15T19:30", isHome: true, pin: "4821", code: "Spiellokal 1", address: "", scoreHome: null, scoreAway: null },
-        { matchType: "league", round: "VR", myTeam: "2. Mannschaft", opponent: "TG Camberg", date: "2026-11-10T20:00", isHome: false, pin: "", code: "Spiellokal 2", address: "Turnhalle Camberg", scoreHome: 6, scoreAway: 4 }
-      ];
-      for (const m of demoMatches) {
-        await db.collection('matches').add(m);
-      }
+      // Keine Demo-Spiele mehr automatisch anlegen
     }
 
     function updateStats() {
