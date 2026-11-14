@@ -47,7 +47,7 @@
         <button onclick="openAddMatchModal()" class="flex-1 sm:flex-none bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-semibold px-4 py-2.5 rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 text-sm">
           <i data-lucide="plus-circle" class="w-4 h-4"></i> Eintrag anlegen
         </button>
-        <button onclick="openSeasonAdminModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 p-2.5 rounded-xl transition" title="Saison verwalten / archivieren">
+        <button onclick="openSeasonAdminModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 p-2.5 rounded-xl transition" title="CSV-Import & Saison verwalten">
           <i data-lucide="archive" class="w-4 h-4"></i>
         </button>
       </div>
@@ -58,14 +58,17 @@
       <div class="bg-slate-900 p-4 rounded-xl border border-slate-700 shadow-md">
         <p id="stat-upcoming-label" class="text-xs text-slate-300 font-medium truncate">Anstehend (Komplett)</p>
         <p id="stat-upcoming" class="text-2xl font-extrabold text-white mt-1">0</p>
+        <p id="stat-upcoming-rounds" class="text-[11px] text-slate-400 font-medium mt-0.5">VR: 0 • RR: 0</p>
       </div>
       <div class="bg-slate-900 p-4 rounded-xl border border-slate-700 shadow-md">
         <p id="stat-completed-label" class="text-xs text-slate-300 font-medium truncate">Gespielt (Komplett)</p>
         <p id="stat-completed" class="text-2xl font-extrabold text-emerald-400 mt-1">0</p>
+        <p id="stat-completed-rounds" class="text-[11px] text-slate-400 font-medium mt-0.5">VR: 0 • RR: 0</p>
       </div>
       <div class="bg-slate-900 p-4 rounded-xl border border-slate-700 shadow-md">
         <p class="text-xs text-slate-300 font-medium">Teams</p>
         <p id="stat-teams" class="text-2xl font-extrabold text-white mt-1">0</p>
+        <p class="text-[11px] text-slate-400 font-medium mt-0.5">Aktiv</p>
       </div>
     </div>
 
@@ -126,8 +129,8 @@
 
     <!-- ANSICHT 2: Mannschafts-Bilanzen -->
     <div id="tab-standings" class="hidden space-y-4">
-      <div class="bg-slate-900 border border-slate-700 rounded-2xl p-4 sm:p-5 shadow-xl">
-        <div class="flex items-center justify-between pb-3 border-b border-slate-700 mb-4">
+      <div class="bg-slate-900 border border-slate-700 rounded-2xl p-4 sm:p-5 shadow-xl space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-700">
           <div>
             <h2 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
               <i data-lucide="bar-chart-2" class="w-5 h-5 text-emerald-400"></i>
@@ -135,8 +138,21 @@
             </h2>
             <p class="text-xs text-slate-300 mt-0.5">Berechnet aus allen beendeten Meisterschaftsspielen (ohne Pokal)</p>
           </div>
-          <button onclick="openTeamLinksModal()" class="text-xs bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-600 px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 transition">
+          <button onclick="openTeamLinksModal()" class="text-xs bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-600 px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 transition self-start sm:self-auto">
             <i data-lucide="link" class="w-3.5 h-3.5"></i> Links verwalten
+          </button>
+        </div>
+
+        <!-- Umschalter Gesamt / Vorrunde / Rückrunde -->
+        <div class="flex bg-slate-800 p-1 rounded-xl border border-slate-700 w-full sm:w-fit">
+          <button onclick="setStandingsRound('ALL')" id="standings-round-ALL" class="flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 text-slate-950 transition">
+            Gesamt
+          </button>
+          <button onclick="setStandingsRound('VR')" id="standings-round-VR" class="flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition">
+            Vorrunde (VR)
+          </button>
+          <button onclick="setStandingsRound('RR')" id="standings-round-RR" class="flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition">
+            Rückrunde (RR)
           </button>
         </div>
 
@@ -201,7 +217,7 @@
 
   <!-- Modal: Spiel / Termin Hinzufügen / Bearbeiten -->
   <div id="match-modal" class="hidden fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-    <div class="bg-slate-800 border border-slate-600 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+    <div class="bg-slate-800 border border-slate-600 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl max-h-[92vh] overflow-y-auto">
       <div class="flex justify-between items-center border-b border-slate-700 pb-3">
         <h3 id="modal-title" class="font-bold text-lg text-white">Neuen Eintrag anlegen</h3>
         <button onclick="closeModal()" class="text-slate-300 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
@@ -210,13 +226,22 @@
       <form id="match-form" onsubmit="saveMatch(event)" class="space-y-3">
         <input type="hidden" id="match-id">
         
-        <div>
-          <label class="text-xs text-slate-300 font-medium">Eintragstyp</label>
-          <select id="match-type" onchange="toggleFormFields()" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-sm mt-1 text-white focus:outline-none focus:border-emerald-500">
-            <option value="league">Meisterschaft</option>
-            <option value="cup">🏆 Pokalspiel</option>
-            <option value="event">🎉 Termin / Veranstaltung</option>
-          </select>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-slate-300 font-medium">Eintragstyp</label>
+            <select id="match-type" onchange="toggleFormFields()" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-sm mt-1 text-white focus:outline-none focus:border-emerald-500">
+              <option value="league">Meisterschaft</option>
+              <option value="cup">🏆 Pokalspiel</option>
+              <option value="event">🎉 Termin / Event</option>
+            </select>
+          </div>
+          <div id="round-select-container">
+            <label class="text-xs text-slate-300 font-medium">Halbserie</label>
+            <select id="match-round" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-sm mt-1 text-white focus:outline-none focus:border-emerald-500">
+              <option value="VR">Vorrunde (VR)</option>
+              <option value="RR">Rückrunde (RR)</option>
+            </select>
+          </div>
         </div>
 
         <div id="team-select-container">
@@ -324,33 +349,48 @@
     </div>
   </div>
 
-  <!-- Modal: Saisonverwaltung & Archivierung -->
+  <!-- Modal: CSV-Import & Saisonverwaltung -->
   <div id="season-admin-modal" class="hidden fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-    <div class="bg-slate-800 border border-slate-600 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+    <div class="bg-slate-800 border border-slate-600 rounded-2xl w-full max-w-md p-6 space-y-5 shadow-2xl max-h-[92vh] overflow-y-auto">
       <div class="flex justify-between items-center border-b border-slate-700 pb-3">
         <h3 class="font-bold text-lg text-white flex items-center gap-2">
-          <i data-lucide="archive" class="w-5 h-5 text-amber-400"></i> Saison verwalten
+          <i data-lucide="archive" class="w-5 h-5 text-amber-400"></i> CSV-Import & Saisonverwaltung
         </h3>
         <button onclick="closeSeasonAdminModal()" class="text-slate-300 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
 
-      <div class="space-y-3 text-sm text-slate-300">
-        <p>Hier kannst du die aktuell laufende Saison abschließen. Alle bisherigen Spiele & Ergebnisse werden im Archiv gespeichert.</p>
-        
-        <div class="bg-slate-900 p-3 rounded-xl border border-slate-700">
-          <span class="text-xs text-slate-400 block">Aktuell aktive Saison:</span>
-          <span id="current-active-season-label" class="text-base font-bold text-emerald-400">Saison ...</span>
+      <!-- BEREICH 1: click-TT CSV-Import -->
+      <div class="bg-slate-900/90 p-4 rounded-xl border border-emerald-500/30 space-y-3">
+        <div class="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+          <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> click-TT Spielplan importieren (CSV)
         </div>
+        <p class="text-xs text-slate-300 leading-relaxed">
+          Wähle den heruntergeladenen <span class="text-white font-semibold">Vereinsspielplan (.csv)</span> aus. Alle Mannschaften (1.–5. Herren, U15, U13), Vor-/Rückrunde, Pokal und Hallenadressen werden automatisch zugeordnet. Bereits vorhandene Spiele werden übersprungen.
+        </p>
+        <input type="file" id="csv-file-input" accept=".csv" class="hidden" onchange="handleCSVFileUpload(event)">
+        <button onclick="document.getElementById('csv-file-input').click()" id="csv-import-btn" class="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-2.5 rounded-xl shadow-md transition flex items-center justify-center gap-2 text-sm">
+          <i data-lucide="upload" class="w-4 h-4"></i> CSV-Datei auswählen & importieren
+        </button>
+        <div id="csv-import-status" class="hidden text-xs p-2.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-200"></div>
       </div>
 
-      <div class="pt-2 flex flex-col gap-2">
-        <button onclick="archiveAndStartNewSeason()" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-3 rounded-xl shadow-lg transition flex items-center justify-center gap-2 text-sm">
-          <i data-lucide="check-circle-2" class="w-4 h-4"></i> Saison beenden & Neue Saison starten
-        </button>
-        <button onclick="closeSeasonAdminModal()" class="w-full bg-slate-700 hover:bg-slate-600 py-2.5 rounded-xl text-sm font-semibold text-slate-200 border border-slate-600">
-          Abbrechen
+      <!-- BEREICH 2: Saison abschließen -->
+      <div class="space-y-3 text-sm text-slate-300 border-t border-slate-700 pt-4">
+        <p class="text-xs">Zum Saisonende kannst du hier alle bisherigen Spiele ins Archiv verschieben, um sauber mit der neuen Saison zu starten.</p>
+        
+        <div class="bg-slate-900 p-3 rounded-xl border border-slate-700 flex justify-between items-center">
+          <span class="text-xs text-slate-400">Aktuell aktive Saison:</span>
+          <span id="current-active-season-label" class="text-sm font-bold text-emerald-400">Saison ...</span>
+        </div>
+
+        <button onclick="archiveAndStartNewSeason()" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-2.5 rounded-xl shadow-lg transition flex items-center justify-center gap-2 text-sm">
+          <i data-lucide="check-circle-2" class="w-4 h-4"></i> Saison beenden & archivieren
         </button>
       </div>
+
+      <button onclick="closeSeasonAdminModal()" class="w-full bg-slate-700 hover:bg-slate-600 py-2.5 rounded-xl text-sm font-semibold text-slate-200 border border-slate-600">
+        Schließen
+      </button>
     </div>
   </div>
 
@@ -370,21 +410,19 @@
 
     (function updateSeasonTitle() {
       const seasonString = getCurrentSeasonString();
-
-      // Browsertitel anpassen
       document.title = `TT-Verein Live - VfR 07 Limburg (${seasonString})`;
-
-      // Alle Elemente mit der Klasse 'season-text' auf der Seite anpassen
       document.querySelectorAll('.season-text').forEach(el => {
         el.textContent = seasonString;
       });
     })();
 
-    /* SAISONVERWALTUNG MODAL FUNKTIONEN */
+    /* SAISONVERWALTUNG & CSV MODAL FUNKTIONEN */
     function openSeasonAdminModal() {
       const currentSeasonStr = getCurrentSeasonString();
       const activeLabel = document.getElementById('current-active-season-label');
       if (activeLabel) activeLabel.textContent = currentSeasonStr;
+      const statusBox = document.getElementById('csv-import-status');
+      if (statusBox) statusBox.classList.add('hidden');
       document.getElementById('season-admin-modal').classList.remove('hidden');
       lucide.createIcons();
     }
@@ -418,6 +456,182 @@
       }
     }
 
+    /* CLICK-TT CSV IMPORT LOGIK */
+    function handleCSVFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const statusBox = document.getElementById('csv-import-status');
+      statusBox.classList.remove('hidden');
+      statusBox.innerHTML = '<span class="text-amber-400">Lese CSV-Datei ein...</span>';
+
+      // Windows-1252 / Latin-1 Encoding für deutsche Umlaute aus click-TT
+      const reader = new FileReader();
+      reader.onload = async function(e) {
+        try {
+          const text = e.target.result;
+          const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
+          if (lines.length < 2) {
+            statusBox.innerHTML = '<span class="text-rose-400">Die Datei enthält keine Spieldaten.</span>';
+            return;
+          }
+
+          const headers = lines[0].split(';').map(h => h.trim());
+          const idx = (name) => headers.indexOf(name);
+
+          const iTermin = idx('Termin');
+          const iAltersklasse = idx('Altersklasse');
+          const iRunde = idx('Runde');
+          const iHalleName = idx('HalleName');
+          const iHalleStrasse = idx('HalleStrasse');
+          const iHallePLZ = idx('HallePLZ');
+          const iHalleOrt = idx('HalleOrt');
+          const iHeimVereinNr = idx('HeimVereinNr');
+          const iHeimMannschaftNr = idx('HeimMannschaftNr');
+          const iHeimMannschaft = idx('HeimMannschaft');
+          const iGastVereinNr = idx('GastVereinNr');
+          const iGastMannschaftNr = idx('GastMannschaftNr');
+          const iGastMannschaft = idx('GastMannschaft');
+          const iSpieleHeim = idx('SpieleHeim');
+          const iSpieleGast = idx('SpieleGast');
+
+          if (iTermin === -1 || iHeimVereinNr === -1 || iGastVereinNr === -1) {
+            statusBox.innerHTML = '<span class="text-rose-400">Unbekanntes CSV-Format. Bitte den Standard-Vereinsspielplan aus click-TT verwenden.</span>';
+            return;
+          }
+
+          const VFR_VEREIN_NR = '33043';
+          let importedCount = 0;
+          let skippedCount = 0;
+          const newMatchesToSave = [];
+
+          for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split(';');
+            if (cols.length < 15) continue;
+
+            const heimVereinNr = (cols[iHeimVereinNr] || '').trim();
+            const gastVereinNr = (cols[iGastVereinNr] || '').trim();
+
+            if (heimVereinNr !== VFR_VEREIN_NR && gastVereinNr !== VFR_VEREIN_NR) {
+              continue;
+            }
+
+            const isHome = heimVereinNr === VFR_VEREIN_NR;
+            const altersklasse = (cols[iAltersklasse] || '').trim();
+            const mannschaftNr = parseInt((isHome ? cols[iHeimMannschaftNr] : cols[iGastMannschaftNr]) || '1', 10);
+            const opponent = (isHome ? cols[iGastMannschaft] : cols[iHeimMannschaft] || '').trim();
+
+            // Eindeutige Team-Zuordnung für VfR 07 Limburg
+            let myTeam = '1. Mannschaft';
+            if (altersklasse === 'Jugend 15') {
+              myTeam = 'Jugend U15';
+            } else if (altersklasse === 'Jugend 13') {
+              myTeam = 'Jugend U13';
+            } else {
+              if (mannschaftNr === 1) myTeam = '1. Mannschaft';
+              else if (mannschaftNr === 2) myTeam = '2. Mannschaft';
+              else if (mannschaftNr === 3) myTeam = '3. Mannschaft';
+              else if (mannschaftNr === 4) myTeam = '4. Mannschaft';
+              else if (mannschaftNr === 5) myTeam = '5. Mannschaft';
+              else myTeam = `${mannschaftNr}. Mannschaft`;
+            }
+
+            // Datum konvertieren: "24.08.2026 17:45" -> "2026-08-24T17:45"
+            const terminRaw = (cols[iTermin] || '').trim();
+            const dateMatch = terminRaw.match(/^(\d{2})\.(\d{2})\.(\d{4})\s+(\d{2}):(\d{2})/);
+            if (!dateMatch) continue;
+            const isoDate = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}T${dateMatch[4]}:${dateMatch[5]}`;
+
+            // Runde & Typ bestimmen
+            const rundeRaw = (cols[iRunde] || '').trim();
+            const isCup = rundeRaw.toLowerCase().includes('pokal');
+            const matchType = isCup ? 'cup' : 'league';
+            const round = isCup ? '' : (rundeRaw === 'RR' ? 'RR' : 'VR');
+
+            // Adresse zusammenbauen
+            const addrParts = [
+              (cols[iHalleName] || '').trim(),
+              (cols[iHalleStrasse] || '').trim(),
+              `${(cols[iHallePLZ] || '').trim()} ${(cols[iHalleOrt] || '').trim()}`.trim()
+            ].filter(Boolean);
+            const address = addrParts.join(', ');
+
+            // Ergebnisse prüfen (0:0 bei künftigen Spielen ignorieren!)
+            const rawSHome = parseInt((cols[iSpieleHeim] || '0').trim(), 10) || 0;
+            const rawSAway = parseInt((cols[iSpieleGast] || '0').trim(), 10) || 0;
+            const hasResult = (rawSHome + rawSAway) > 0;
+
+            // Duplikat-Prüfung (gleiches Team + gleiches Datum + gleicher Gegner)
+            const alreadyExists = allMatches.some(existing =>
+              !existing.archived &&
+              existing.myTeam === myTeam &&
+              existing.date === isoDate &&
+              existing.opponent === opponent
+            );
+
+            if (alreadyExists) {
+              skippedCount++;
+              continue;
+            }
+
+            newMatchesToSave.push({
+              matchType,
+              round,
+              myTeam,
+              opponent,
+              date: isoDate,
+              isHome,
+              address,
+              pin: '',
+              code: '',
+              scoreHome: hasResult ? rawSHome : null,
+              scoreAway: hasResult ? rawSAway : null,
+              archived: false
+            });
+            importedCount++;
+          }
+
+          if (newMatchesToSave.length > 0) {
+            statusBox.innerHTML = `<span class="text-amber-400">Speichere ${newMatchesToSave.length} neue Spiele in der Datenbank...</span>`;
+            if (isFirebaseConnected && db) {
+              // In 400er Batches in Firestore schreiben
+              for (let i = 0; i < newMatchesToSave.length; i += 400) {
+                const batch = db.batch();
+                newMatchesToSave.slice(i, i + 400).forEach(item => {
+                  const docRef = db.collection('matches').doc();
+                  batch.set(docRef, item);
+                });
+                await batch.commit();
+              }
+            } else {
+              newMatchesToSave.forEach((item, idx) => {
+                allMatches.push({ id: `${Date.now()}_${idx}`, ...item });
+              });
+              saveLocal();
+              sortMatchesChronologically();
+              updateTeamDropdownOptions();
+              updateStats();
+              renderMatches();
+              renderStandings();
+              renderCupMatches();
+            }
+          }
+
+          statusBox.innerHTML = `
+            <div class="text-emerald-400 font-bold">✅ Import abgeschlossen!</div>
+            <div class="text-slate-300 mt-1">• <span class="text-white font-semibold">${importedCount}</span> neue Spiele angelegt</div>
+            <div class="text-slate-400">• ${skippedCount} bereits vorhandene Spiele übersprungen</div>
+          `;
+        } catch (err) {
+          console.error("CSV-Import Fehler:", err);
+          statusBox.innerHTML = `<span class="text-rose-400">Fehler beim Verarbeiten der Datei: ${err.message}</span>`;
+        } finally {
+          event.target.value = '';
+        }
+      };
+      reader.readAsText(file, 'windows-1252');
+    }
+
     const firebaseConfig = {
       apiKey: "AIzaSyBtH6B6UZ8Ce-9LnxKnwJivclLnFzsziIQ",
       authDomain: "tischtennis-spiele.firebaseapp.com",
@@ -433,6 +647,7 @@
     let currentFilter = 'upcoming';
     let currentTab = 'matches';
     let selectedTeamFilter = 'ALL';
+    let standingsRoundFilter = 'ALL'; // 'ALL' | 'VR' | 'RR'
 
     // Einmalige Session-ID für Präsenz-Messung
     const sessionId = 'user_' + Math.random().toString(36).substring(2, 9);
@@ -456,6 +671,14 @@
     function parseMatchDate(dateStr) {
       if (!dateStr) return new Date(0);
       return new Date(dateStr.toString().replace('Z', ''));
+    }
+
+    /* Ermittelt Vorrunde (VR) oder Rückrunde (RR) - mit automatischer Fallback-Erkennung für bestehende Einträge */
+    function getMatchRound(m) {
+      if (m.round === 'VR' || m.round === 'RR') return m.round;
+      const d = parseMatchDate(m.date);
+      const month = d.getMonth(); // 0=Jan ... 6=Jul ... 11=Dez
+      return (month >= 6) ? 'VR' : 'RR';
     }
 
     function sortMatchesChronologically() {
@@ -509,7 +732,6 @@
       const matchDate = parseMatchDate(m.date);
       const now = new Date();
 
-      // 1. Sicherheits-Check: Findet das Spiel überhaupt HEUTE statt?
       const isSameDay =
         matchDate.getFullYear() === now.getFullYear() &&
         matchDate.getMonth() === now.getMonth() &&
@@ -517,7 +739,6 @@
 
       if (!isSameDay) return false;
 
-      // 2. Zeitfenster prüfen (ab 5 Min vor Spielbeginn bis 3 Stunden nach Spielbeginn)
       const fiveMinBefore = new Date(matchDate.getTime() - 5 * 60 * 1000);
       const threeHoursAfter = new Date(matchDate.getTime() + 3 * 60 * 60 * 1000);
 
@@ -525,7 +746,6 @@
         return true;
       }
 
-      // 3. Oder es wurde heute bereits ein echter Spielstand > 0:0 eingetragen
       const sHome = parseInt(m.scoreHome) || 0;
       const sAway = parseInt(m.scoreAway) || 0;
       if (sHome + sAway > 0) {
@@ -608,8 +828,8 @@
         allMatches = JSON.parse(localData);
       } else {
         allMatches = [
-          { id: '1', matchType: "league", myTeam: "1. Mannschaft", opponent: "TTC Elz II", date: "2026-11-15T19:30", isHome: true, pin: "4821", code: "109823", address: "", scoreHome: null, scoreAway: null },
-          { id: '2', matchType: "league", myTeam: "2. Mannschaft", opponent: "TG Camberg", date: "2026-11-10T20:00", isHome: false, pin: "", code: "Halle 2", address: "Turnhalle Camberg", scoreHome: 6, scoreAway: 4 }
+          { id: '1', matchType: "league", round: "VR", myTeam: "1. Mannschaft", opponent: "TTC Elz II", date: "2026-11-15T19:30", isHome: true, pin: "4821", code: "109823", address: "", scoreHome: null, scoreAway: null },
+          { id: '2', matchType: "league", round: "VR", myTeam: "2. Mannschaft", opponent: "TG Camberg", date: "2026-11-10T20:00", isHome: false, pin: "", code: "Halle 2", address: "Turnhalle Camberg", scoreHome: 6, scoreAway: 4 }
         ];
         saveLocal();
       }
@@ -669,8 +889,8 @@
 
     async function seedInitialData() {
       const demoMatches = [
-        { matchType: "league", myTeam: "1. Mannschaft", opponent: "TTC Elz II", date: "2026-11-15T19:30", isHome: true, pin: "4821", code: "109823", address: "", scoreHome: null, scoreAway: null },
-        { matchType: "league", myTeam: "2. Mannschaft", opponent: "TG Camberg", date: "2026-11-10T20:00", isHome: false, pin: "", code: "Halle 2", address: "Turnhalle Camberg", scoreHome: 6, scoreAway: 4 }
+        { matchType: "league", round: "VR", myTeam: "1. Mannschaft", opponent: "TTC Elz II", date: "2026-11-15T19:30", isHome: true, pin: "4821", code: "109823", address: "", scoreHome: null, scoreAway: null },
+        { matchType: "league", round: "VR", myTeam: "2. Mannschaft", opponent: "TG Camberg", date: "2026-11-10T20:00", isHome: false, pin: "", code: "Halle 2", address: "Turnhalle Camberg", scoreHome: 6, scoreAway: 4 }
       ];
       for (const m of demoMatches) {
         await db.collection('matches').add(m);
@@ -692,16 +912,27 @@
         completedLabel.textContent = "Gespielt (Komplett)";
       }
 
-      const completed = filtered.filter(m => isMatchCompleted(m)).length;
-      const upcoming = filtered.length - completed;
+      const completedList = filtered.filter(m => isMatchCompleted(m));
+      const upcomingList = filtered.filter(m => !isMatchCompleted(m));
+
+      // VR & RR Zählung für Meisterschaftsspiele
+      const upVR = upcomingList.filter(m => (m.matchType || 'league') === 'league' && getMatchRound(m) === 'VR').length;
+      const upRR = upcomingList.filter(m => (m.matchType || 'league') === 'league' && getMatchRound(m) === 'RR').length;
+
+      const compVR = completedList.filter(m => (m.matchType || 'league') === 'league' && getMatchRound(m) === 'VR').length;
+      const compRR = completedList.filter(m => (m.matchType || 'league') === 'league' && getMatchRound(m) === 'RR').length;
 
       const teams = new Set(allMatches.filter(m => {
         const type = m.matchType || (m.myTeam === 'Verein' ? 'event' : 'league');
         return type !== 'event' && m.myTeam !== 'Verein';
       }).map(m => m.myTeam)).size;
 
-      document.getElementById('stat-upcoming').textContent = upcoming;
-      document.getElementById('stat-completed').textContent = completed;
+      document.getElementById('stat-upcoming').textContent = upcomingList.length;
+      document.getElementById('stat-upcoming-rounds').textContent = `VR: ${upVR} • RR: ${upRR}`;
+
+      document.getElementById('stat-completed').textContent = completedList.length;
+      document.getElementById('stat-completed-rounds').textContent = `VR: ${compVR} • RR: ${compRR}`;
+
       document.getElementById('stat-teams').textContent = teams;
     }
 
@@ -819,10 +1050,26 @@
       renderMatches();
     }
 
+    function setStandingsRound(round) {
+      standingsRoundFilter = round;
+      ['ALL', 'VR', 'RR'].forEach(r => {
+        const btn = document.getElementById(`standings-round-${r}`);
+        if (!btn) return;
+        if (r === round) {
+          btn.className = "flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 text-slate-950 transition";
+        } else {
+          btn.className = "flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition";
+        }
+      });
+      renderStandings();
+    }
+
     function toggleFormFields() {
       const type = document.getElementById('match-type').value;
       const isEvent = type === 'event';
+      const isLeague = type === 'league';
 
+      const roundContainer = document.getElementById('round-select-container');
       const teamContainer = document.getElementById('team-select-container');
       const isHomeContainer = document.getElementById('is-home-container');
       const pinCodeContainer = document.getElementById('pin-code-container');
@@ -830,6 +1077,12 @@
       const opponentLabel = document.getElementById('opponent-label');
       const addressLabel = document.getElementById('address-label');
       const opponentInput = document.getElementById('opponent');
+
+      if (isLeague) {
+        roundContainer.classList.remove('hidden');
+      } else {
+        roundContainer.classList.add('hidden');
+      }
 
       if (isEvent) {
         teamContainer.classList.add('hidden');
@@ -879,7 +1132,6 @@
         });
       }
 
-      // 1. Nach Filter filtern
       if (currentFilter === 'live') {
         filtered = filtered.filter(m => isMatchLive(m));
       } else if (currentFilter === 'upcoming') {
@@ -888,7 +1140,6 @@
         filtered = filtered.filter(m => isMatchCompleted(m));
       }
 
-      // 2. Sortierung (Bei "Alle": Anstehende oben, Beendete unten)
       if (currentFilter === 'all') {
         const upcomingOrLive = filtered
           .filter(m => !isMatchCompleted(m))
@@ -927,6 +1178,7 @@
         const isCup = type === 'cup';
         const isDone = isMatchCompleted(m);
         const isRunning = isMatchLive(m);
+        const matchRound = getMatchRound(m);
         const matchDate = parseMatchDate(m.date);
         const formattedDate = matchDate.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
@@ -995,7 +1247,11 @@
                   <span class="text-xs px-2 py-0.5 rounded font-semibold bg-amber-400/20 text-amber-300 border border-amber-400/30 flex items-center gap-1">
                     <i data-lucide="trophy" class="w-3 h-3 text-amber-400"></i> Pokal
                   </span>
-                ` : ''}
+                ` : `
+                  <span class="text-[11px] px-1.5 py-0.5 rounded font-bold bg-slate-800 text-slate-300 border border-slate-600">
+                    ${matchRound}
+                  </span>
+                `}
                 <span class="text-xs px-2 py-0.5 rounded font-semibold ${m.isHome ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'}">
                   ${m.isHome ? 'Heimspiel' : 'Auswärts'}
                 </span>
@@ -1135,11 +1391,16 @@
       const usedTeams = new Set(defaultTeams);
       const leagueMatches = allMatches.filter(m => {
         const type = m.matchType || (m.myTeam === 'Verein' ? 'event' : 'league');
-        return type === 'league' && m.myTeam !== 'Verein' && !m.archived;
+        if (type !== 'league' || m.myTeam === 'Verein' || m.archived) return false;
+        if (standingsRoundFilter !== 'ALL' && getMatchRound(m) !== standingsRoundFilter) return false;
+        return true;
       });
 
-      leagueMatches.forEach(m => {
-        if (m.myTeam) usedTeams.add(m.myTeam);
+      allMatches.forEach(m => {
+        const type = m.matchType || (m.myTeam === 'Verein' ? 'event' : 'league');
+        if (type === 'league' && m.myTeam && m.myTeam !== 'Verein' && !m.archived) {
+          usedTeams.add(m.myTeam);
+        }
       });
 
       const stats = {};
@@ -1414,6 +1675,10 @@
       document.getElementById('match-form').reset();
       document.getElementById('match-type').value = 'league';
       
+      // Standardmäßig aktuell passende Halbserie vorauswählen
+      const currentMonth = new Date().getMonth();
+      document.getElementById('match-round').value = (currentMonth >= 6) ? 'VR' : 'RR';
+      
       const teamSelect = document.getElementById('my-team');
       const customInput = document.getElementById('custom-team');
       
@@ -1446,6 +1711,7 @@
       const matchType = m.matchType || (m.myTeam === 'Verein' ? 'event' : 'league');
       document.getElementById('match-id').value = m.id;
       document.getElementById('match-type').value = matchType;
+      document.getElementById('match-round').value = getMatchRound(m);
       toggleFormFields();
 
       if (matchType !== 'event') {
@@ -1481,6 +1747,7 @@
       e.preventDefault();
       const id = document.getElementById('match-id').value;
       const matchType = document.getElementById('match-type').value;
+      const round = matchType === 'league' ? document.getElementById('match-round').value : '';
       const selectVal = document.getElementById('my-team').value;
       const isEvent = matchType === 'event';
       
@@ -1501,6 +1768,7 @@
 
       const data = {
         matchType,
+        round,
         myTeam,
         opponent,
         date,
