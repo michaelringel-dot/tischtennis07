@@ -490,7 +490,6 @@
         snapshot.forEach(doc => {
           const data = doc.data();
           if (data.lastSeen && data.lastSeen.toDate) {
-            // Gerät gilt als aktiv, wenn es in den letzten 90 Sekunden ein Signal gesendet hat
             if (now - data.lastSeen.toDate().getTime() < 90000) {
               count++;
             }
@@ -502,25 +501,35 @@
       }, () => {});
     }
 
-    /* Live-Erkennung: Zwischenstand ODER Zeitfenster (5 Min vor Anpfiff bis 3h danach) */
+    /* Live-Erkennung: NUR wenn das Spiel heute stattfindet (5 Min vor Anpfiff bis 3h danach) */
     function isMatchLive(m) {
       const type = m.matchType || (m.myTeam === 'Verein' ? 'event' : 'league');
-      if (type === 'event') return false;
+      if (type === 'event' || isMatchCompleted(m) || !m.date) return false;
 
-      if (isMatchCompleted(m)) return false;
+      const matchDate = parseMatchDate(m.date);
+      const now = new Date();
 
-      const hasPartialScore = m.scoreHome !== null && m.scoreAway !== null && m.scoreHome !== "" && m.scoreAway !== "";
-      if (hasPartialScore) return true;
+      // 1. Sicherheits-Check: Findet das Spiel überhaupt HEUTE statt?
+      const isSameDay =
+        matchDate.getFullYear() === now.getFullYear() &&
+        matchDate.getMonth() === now.getMonth() &&
+        matchDate.getDate() === now.getDate();
 
-      if (m.date) {
-        const matchDate = parseMatchDate(m.date);
-        const now = new Date();
-        const fiveMinBefore = new Date(matchDate.getTime() - 5 * 60 * 1000);
-        const threeHoursAfter = new Date(matchDate.getTime() + 3 * 60 * 60 * 1000);
+      if (!isSameDay) return false;
 
-        if (now >= fiveMinBefore && now <= threeHoursAfter) {
-          return true;
-        }
+      // 2. Zeitfenster prüfen (ab 5 Min vor Spielbeginn bis 3 Stunden nach Spielbeginn)
+      const fiveMinBefore = new Date(matchDate.getTime() - 5 * 60 * 1000);
+      const threeHoursAfter = new Date(matchDate.getTime() + 3 * 60 * 60 * 1000);
+
+      if (now >= fiveMinBefore && now <= threeHoursAfter) {
+        return true;
+      }
+
+      // 3. Oder es wurde heute bereits ein echter Spielstand > 0:0 eingetragen
+      const sHome = parseInt(m.scoreHome) || 0;
+      const sAway = parseInt(m.scoreAway) || 0;
+      if (sHome + sAway > 0) {
+        return true;
       }
 
       return false;
@@ -879,7 +888,7 @@
         filtered = filtered.filter(m => isMatchCompleted(m));
       }
 
-      // 2. Gewünschte Sortierung (Bei "Alle": Anstehende oben, Beendete unten)
+      // 2. Sortierung (Bei "Alle": Anstehende oben, Beendete unten)
       if (currentFilter === 'all') {
         const upcomingOrLive = filtered
           .filter(m => !isMatchCompleted(m))
@@ -902,7 +911,7 @@
             <div class="text-center py-12 bg-slate-900 border border-slate-700 rounded-xl">
               <i data-lucide="radio" class="w-8 h-8 text-slate-500 mx-auto mb-2"></i>
               <p class="text-sm text-slate-300 font-medium">Aktuell finden keine Live-Spiele statt.</p>
-              <p class="text-xs text-slate-400 mt-1">Spiele erscheinen hier 5 Minuten vor Spielbeginn oder sobald Zwischenstände vorliegen.</p>
+              <p class="text-xs text-slate-400 mt-1">Spiele erscheinen hier 5 Minuten vor Spielbeginn oder sobald am Spieltag Zwischenstände vorliegen.</p>
             </div>
           `;
         } else {
