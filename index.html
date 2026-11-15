@@ -307,22 +307,28 @@
           </div>
           <div>
             <label class="text-xs text-slate-300 font-medium flex items-center justify-between">
-              <span>Spiellokal / Halle</span>
+              <span id="code-field-label">Spielcode</span>
               <span class="text-[10px] text-slate-400">Optional</span>
             </label>
             <div class="relative mt-1">
-              <input type="text" id="match-code" placeholder="z.B. Spiellokal 1" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 pl-8 text-sm text-white font-mono tracking-wider focus:outline-none focus:border-emerald-500">
-              <i data-lucide="building-2" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-3"></i>
+              <input type="text" id="match-code" placeholder="z.B. ZKEEQ7QAUP34" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 pl-8 text-sm text-white font-mono tracking-wider focus:outline-none focus:border-emerald-500">
+              <i data-lucide="hash" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-3"></i>
             </div>
           </div>
         </div>
 
-        <div id="score-container" class="border-t border-slate-700 pt-3">
-          <label class="text-xs text-slate-300 font-medium">Ergebnis (Beendet sobald Mindestsumme erreicht)</label>
-          <div class="flex items-center gap-2 mt-1">
-            <input type="number" id="score-home" min="0" max="15" placeholder="Heim" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-sm text-center text-white focus:outline-none focus:border-emerald-500">
-            <span class="text-slate-400 font-bold">:</span>
-            <input type="number" id="score-away" min="0" max="15" placeholder="Gast" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-sm text-center text-white focus:outline-none focus:border-emerald-500">
+        <div id="score-container" class="border-t border-slate-700 pt-3 space-y-2.5">
+          <label class="flex items-center gap-2 text-xs text-rose-300 font-semibold cursor-pointer bg-rose-500/10 border border-rose-500/30 px-3 py-2 rounded-lg">
+            <input type="checkbox" id="match-manual-live" class="rounded accent-rose-500 w-4 h-4">
+            <span>Spiel jetzt LIVE schalten (z.B. bei Vorverlegung)</span>
+          </label>
+          <div>
+            <label class="text-xs text-slate-300 font-medium">Ergebnis (Beendet sobald Mindestsumme erreicht)</label>
+            <div class="flex items-center gap-2 mt-1">
+              <input type="number" id="score-home" min="0" max="15" placeholder="Heim" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-sm text-center text-white focus:outline-none focus:border-emerald-500">
+              <span class="text-slate-400 font-bold">:</span>
+              <input type="number" id="score-away" min="0" max="15" placeholder="Gast" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-sm text-center text-white focus:outline-none focus:border-emerald-500">
+            </div>
           </div>
         </div>
 
@@ -370,7 +376,7 @@
           <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> click-TT Spielplan importieren (CSV)
         </div>
         <p class="text-xs text-slate-300 leading-relaxed">
-          Wähle den heruntergeladenen <span class="text-white font-semibold">Vereinsspielplan (.csv)</span> aus. Alle Mannschaften (1.–5. Herren, U15, U13), Vor-/Rückrunde, Pokal, Spiellokal-Nummer (<span class="text-white font-mono">HalleNr</span>) und Hallenadressen werden automatisch zugeordnet.
+          Wähle den heruntergeladenen <span class="text-white font-semibold">Vereinsspielplan (.csv)</span> aus. Alle Mannschaften (1.–5. Herren, U15, U13), Vor-/Rückrunde, Pokal, Spiellokal-Nummer bei Auswärtsspielen (<span class="text-white font-mono">HalleNr</span>) und Hallenadressen werden automatisch zugeordnet.
         </p>
         <input type="file" id="csv-file-input" accept=".csv" class="hidden" onchange="handleCSVFileUpload(event)">
         <button onclick="requestVereinsPin('CSV-Import starten', () => document.getElementById('csv-file-input').click())" id="csv-import-btn" class="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-2.5 rounded-xl shadow-md transition flex items-center justify-center gap-2 text-sm">
@@ -463,7 +469,7 @@
     }
 
     /* ============================================================
-       DIREKT-KOPIE FÜR SPIEL-PIN & SPIELLOKAL / SPIELCODE
+       DIREKT-KOPIE FÜR SPIEL-PIN & SPIELCODE (BEI HEIMSPIELEN)
        ============================================================ */
     function copyToClipboard(text, btnElement) {
       if (!text) return;
@@ -498,6 +504,24 @@
       ta.select();
       try { document.execCommand('copy'); } catch (e) {}
       document.body.removeChild(ta);
+    }
+
+    /* ============================================================
+       MANUELLES LIVE-STARTEN (Z.B. BEI VORVERLEGUNG)
+       ============================================================ */
+    async function startMatchLiveNow(matchId) {
+      const m = allMatches.find(item => item.id === matchId);
+      if (!m) return;
+
+      if (isFirebaseConnected && db) {
+        await db.collection('matches').doc(matchId).update({
+          manualLive: true
+        });
+      } else {
+        m.manualLive = true;
+        saveLocal();
+        renderMatches();
+      }
     }
 
     /* ============================================================
@@ -558,7 +582,7 @@
       });
     })();
 
-    /* Hilfsfunktion für Spiellokal / Hallen-Nummer (inkl. Fallback auf alte Feldnamen in Firebase) */
+    /* Hilfsfunktion für Spielcode (Heim) bzw. Spiellokal (Auswärts) */
     function getHallCode(m) {
       return (m.code || m.spiellokal || m.halle || m.hall || m.lokal || '').toString().trim();
     }
@@ -700,10 +724,10 @@
             const matchType = isCup ? 'cup' : 'league';
             const round = isCup ? '' : (rundeRaw === 'RR' ? 'RR' : 'VR');
 
-            // Spiellokal / Hallen-Nummer aus HalleNr übernehmen ("Spiellokal 1", "Spiellokal 2", ...)
+            // Nur bei Auswärtsspielen Spiellokal aus HalleNr übernehmen (Heim bleibt leer für den nuScore-Spielcode)
             const rawHalleNr = iHalleNr !== -1 ? (cols[iHalleNr] || '').trim() : '';
             const cleanHalleNr = rawHalleNr ? rawHalleNr.replace(/\.0$/, '') : '';
-            const code = cleanHalleNr ? `Spiellokal ${cleanHalleNr}` : '';
+            const code = (!isHome && cleanHalleNr) ? `Spiellokal ${cleanHalleNr}` : '';
 
             // Adresse zusammenbauen
             const addrParts = [
@@ -741,6 +765,7 @@
               address,
               pin: '',
               code,
+              manualLive: false,
               scoreHome: hasResult ? rawSHome : null,
               scoreAway: hasResult ? rawSAway : null,
               archived: false
@@ -879,7 +904,14 @@
 
     function isMatchLive(m) {
       const type = m.matchType || (m.myTeam === 'Verein' ? 'event' : 'league');
-      if (type === 'event' || isMatchCompleted(m) || !m.date) return false;
+      if (type === 'event' || isMatchCompleted(m)) return false;
+
+      // Manuell per "Live starten"-Button aktiviertes Spiel (z.B. bei Vorverlegung)
+      if (m.manualLive === true) {
+        return true;
+      }
+
+      if (!m.date) return false;
 
       const matchDate = parseMatchDate(m.date);
       const now = new Date();
@@ -1261,14 +1293,22 @@
     function toggleAddressInput() {
       const isHomeSelect = document.getElementById('is-home');
       const addressContainer = document.getElementById('address-container');
+      const codeFieldLabel = document.getElementById('code-field-label');
+      const codeInput = document.getElementById('match-code');
       const type = document.getElementById('match-type').value;
 
       if (type === 'event') return;
 
-      if (isHomeSelect.value === "false") {
+      const isHome = isHomeSelect.value === "true";
+
+      if (!isHome) {
         addressContainer.classList.remove('hidden');
+        if (codeFieldLabel) codeFieldLabel.textContent = "Spiellokal / Halle";
+        if (codeInput) codeInput.placeholder = "z.B. Spiellokal 1";
       } else {
         addressContainer.classList.add('hidden');
+        if (codeFieldLabel) codeFieldLabel.textContent = "Spielcode";
+        if (codeInput) codeInput.placeholder = "z.B. ZKEEQ7QAUP34";
       }
     }
 
@@ -1313,7 +1353,7 @@
             <div class="text-center py-12 bg-slate-900 border border-slate-700 rounded-xl">
               <i data-lucide="radio" class="w-8 h-8 text-slate-500 mx-auto mb-2"></i>
               <p class="text-sm text-slate-300 font-medium">Aktuell finden keine Live-Spiele statt.</p>
-              <p class="text-xs text-slate-400 mt-1">Spiele erscheinen hier 5 Minuten vor Spielbeginn oder sobald am Spieltag Zwischenstände vorliegen.</p>
+              <p class="text-xs text-slate-400 mt-1">Spiele erscheinen hier 5 Minuten vor Spielbeginn, bei Zwischenständen oder nach Klick auf „▶ Live“.</p>
             </div>
           `;
         } else {
@@ -1387,6 +1427,32 @@
         const liveHome = parseInt(m.scoreHome) || 0;
         const liveAway = parseInt(m.scoreAway) || 0;
 
+        // Heimspiel: Kopier-Button für Spiel-PIN | Auswärts: ohne Kopier-Button
+        const pinBadgeHtml = m.pin ? (
+          m.isHome ? `
+            <button type="button" onclick="copyToClipboard('${m.pin.replace(/'/g, "\\'")}', this)" title="Spiel-PIN kopieren" class="text-xs px-2 py-0.5 rounded font-mono font-semibold bg-slate-800 hover:bg-slate-700 active:scale-95 text-amber-300 border border-slate-600 flex items-center gap-1 transition cursor-pointer">
+              <i data-lucide="key-round" class="w-3 h-3 text-amber-400"></i> PIN: ${m.pin} <i data-lucide="copy" class="w-2.5 h-2.5 text-slate-400 ml-0.5"></i>
+            </button>
+          ` : `
+            <span class="text-xs px-2 py-0.5 rounded font-mono font-semibold bg-slate-800 text-amber-300 border border-slate-600 flex items-center gap-1">
+              <i data-lucide="key-round" class="w-3 h-3 text-amber-400"></i> PIN: ${m.pin}
+            </span>
+          `
+        ) : '';
+
+        // Heimspiel: Spielcode mit Kopier-Button | Auswärts: Spiellokal ohne Kopier-Button
+        const codeOrHallBadgeHtml = hallCode ? (
+          m.isHome ? `
+            <button type="button" onclick="copyToClipboard('${hallCode.replace(/'/g, "\\'")}', this)" title="Spielcode kopieren" class="text-xs px-2 py-0.5 rounded font-mono font-semibold bg-slate-800 hover:bg-slate-700 active:scale-95 text-cyan-300 border border-slate-600 flex items-center gap-1 transition cursor-pointer">
+              <i data-lucide="hash" class="w-3 h-3 text-cyan-400"></i> ${hallCode} <i data-lucide="copy" class="w-2.5 h-2.5 text-slate-400 ml-0.5"></i>
+            </button>
+          ` : `
+            <span class="text-xs px-2 py-0.5 rounded font-mono font-semibold bg-slate-800 text-cyan-300 border border-slate-600 flex items-center gap-1">
+              <i data-lucide="building-2" class="w-3 h-3 text-cyan-400"></i> ${hallCode}
+            </span>
+          `
+        ) : '';
+
         return `
           <div class="bg-slate-900 border ${isRunning ? 'border-rose-500/60 shadow-rose-900/20' : isCup ? 'border-amber-500/40' : 'border-slate-700'} rounded-xl p-4 transition hover:border-slate-500 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-md">
             <div class="space-y-1.5 flex-1">
@@ -1418,16 +1484,8 @@
                 <span class="text-xs text-slate-300 flex items-center gap-1">
                   <i data-lucide="calendar" class="w-3.5 h-3.5"></i> ${formattedDate} Uhr
                 </span>
-                ${m.pin ? `
-                  <button type="button" onclick="copyToClipboard('${m.pin.replace(/'/g, "\\'")}', this)" title="Spiel-PIN kopieren" class="text-xs px-2 py-0.5 rounded font-mono font-semibold bg-slate-800 hover:bg-slate-700 active:scale-95 text-amber-300 border border-slate-600 flex items-center gap-1 transition cursor-pointer">
-                    <i data-lucide="key-round" class="w-3 h-3 text-amber-400"></i> PIN: ${m.pin} <i data-lucide="copy" class="w-2.5 h-2.5 text-slate-400 ml-0.5"></i>
-                  </button>
-                ` : ''}
-                ${hallCode ? `
-                  <button type="button" onclick="copyToClipboard('${hallCode.replace(/'/g, "\\'")}', this)" title="Spiellokal / Spielcode kopieren" class="text-xs px-2 py-0.5 rounded font-mono font-semibold bg-slate-800 hover:bg-slate-700 active:scale-95 text-cyan-300 border border-slate-600 flex items-center gap-1 transition cursor-pointer">
-                    <i data-lucide="building-2" class="w-3 h-3 text-cyan-400"></i> ${hallCode} <i data-lucide="copy" class="w-2.5 h-2.5 text-slate-400 ml-0.5"></i>
-                  </button>
-                ` : ''}
+                ${pinBadgeHtml}
+                ${codeOrHallBadgeHtml}
               </div>
 
               <div class="text-base font-bold text-white flex items-center gap-2">
@@ -1457,9 +1515,14 @@
                   </div>
                 </div>
               ` : `
-                <span class="text-xs font-semibold text-amber-300 bg-amber-400/20 border border-amber-400/30 px-2.5 py-1 rounded-lg">
-                  Anstehend
-                </span>
+                <div class="flex items-center gap-1.5">
+                  <button type="button" onclick="startMatchLiveNow('${m.id}')" title="Spiel vorzeitig Live schalten" class="text-xs font-semibold text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 active:scale-95 border border-rose-500/30 px-2.5 py-1 rounded-lg flex items-center gap-1 transition cursor-pointer">
+                    <i data-lucide="play" class="w-3 h-3 text-rose-400"></i> Live
+                  </button>
+                  <span class="text-xs font-semibold text-amber-300 bg-amber-400/20 border border-amber-400/30 px-2.5 py-1 rounded-lg">
+                    Anstehend
+                  </span>
+                </div>
               `}
 
               <div class="flex items-center gap-1">
@@ -1832,6 +1895,7 @@
       document.getElementById('match-id').value = '';
       document.getElementById('match-form').reset();
       document.getElementById('match-type').value = 'league';
+      document.getElementById('match-manual-live').checked = false;
       
       const currentMonth = new Date().getMonth();
       document.getElementById('match-round').value = (currentMonth >= 6) ? 'VR' : 'RR';
@@ -1869,7 +1933,7 @@
       document.getElementById('match-id').value = m.id;
       document.getElementById('match-type').value = matchType;
       document.getElementById('match-round').value = getMatchRound(m);
-      toggleFormFields();
+      document.getElementById('match-manual-live').checked = Boolean(m.manualLive);
 
       if (matchType !== 'event') {
         const select = document.getElementById('my-team');
@@ -1892,6 +1956,7 @@
         document.getElementById('score-away').value = m.scoreAway !== null ? m.scoreAway : '';
       }
 
+      toggleFormFields();
       document.getElementById('opponent').value = m.opponent;
       document.getElementById('match-date').value = m.date;
       document.getElementById('match-address').value = m.address || '';
@@ -1919,6 +1984,7 @@
       const address = document.getElementById('match-address').value.trim();
       const pin = isEvent ? '' : document.getElementById('match-pin').value.trim();
       const code = isEvent ? '' : document.getElementById('match-code').value.trim();
+      const manualLive = isEvent ? false : document.getElementById('match-manual-live').checked;
       
       const sHome = isEvent ? '' : document.getElementById('score-home').value;
       const sAway = isEvent ? '' : document.getElementById('score-away').value;
@@ -1933,6 +1999,7 @@
         address,
         pin,
         code,
+        manualLive,
         scoreHome: sHome !== "" ? parseInt(sHome) : null,
         scoreAway: sAway !== "" ? parseInt(sAway) : null,
         archived: false
@@ -1998,7 +2065,8 @@
         .replace(/-|:|\.\d\d\d/g, "");
 
       const summary = `${m.myTeam} vs. ${m.opponent}`;
-      const description = `Spiel-PIN: ${m.pin || 'Keine'} | Spiellokal: ${hallCode || 'Keines'}`;
+      const codeLabel = m.isHome ? 'Spielcode' : 'Spiellokal';
+      const description = `Spiel-PIN: ${m.pin || 'Keine'} | ${codeLabel}: ${hallCode || 'Keines'}`;
       const location = m.address || (m.isHome ? 'Heimspiel' : 'Auswärts');
 
       const icsData = 
