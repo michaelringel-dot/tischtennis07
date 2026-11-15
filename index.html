@@ -513,6 +513,9 @@
       const m = allMatches.find(item => item.id === matchId);
       if (!m) return;
 
+      const confirmed = confirm(`Beginnt euer Spiel früher?\n\nMöchtest du „${m.myTeam} vs. ${m.opponent}“ jetzt wirklich schon LIVE schalten?`);
+      if (!confirmed) return;
+
       if (isFirebaseConnected && db) {
         await db.collection('matches').doc(matchId).update({
           manualLive: true
