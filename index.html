@@ -373,7 +373,7 @@
           Wähle den heruntergeladenen <span class="text-white font-semibold">Vereinsspielplan (.csv)</span> aus. Alle Mannschaften (1.–5. Herren, U15, U13), Vor-/Rückrunde, Pokal, Spiellokal-Nummer (<span class="text-white font-mono">HalleNr</span>) und Hallenadressen werden automatisch zugeordnet.
         </p>
         <input type="file" id="csv-file-input" accept=".csv" class="hidden" onchange="handleCSVFileUpload(event)">
-        <button onclick="document.getElementById('csv-file-input').click()" id="csv-import-btn" class="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-2.5 rounded-xl shadow-md transition flex items-center justify-center gap-2 text-sm">
+        <button onclick="requestVereinsPin('CSV-Import starten', () => document.getElementById('csv-file-input').click())" id="csv-import-btn" class="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-2.5 rounded-xl shadow-md transition flex items-center justify-center gap-2 text-sm">
           <i data-lucide="upload" class="w-4 h-4"></i> CSV-Datei auswählen & importieren
         </button>
         <div id="csv-import-status" class="hidden text-xs p-2.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-200"></div>
@@ -388,7 +388,7 @@
           <span id="current-active-season-label" class="text-sm font-bold text-emerald-400">Saison ...</span>
         </div>
 
-        <button onclick="archiveAndStartNewSeason()" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-2.5 rounded-xl shadow-lg transition flex items-center justify-center gap-2 text-sm">
+        <button onclick="requestVereinsPin('Saison beenden & archivieren', () => archiveAndStartNewSeason())" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-2.5 rounded-xl shadow-lg transition flex items-center justify-center gap-2 text-sm">
           <i data-lucide="check-circle-2" class="w-4 h-4"></i> Saison beenden & archivieren
         </button>
       </div>
@@ -399,7 +399,144 @@
     </div>
   </div>
 
+  <!-- Modal: Vereins-PIN Sicherheitsabfrage -->
+  <div id="vereins-pin-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
+    <div class="bg-slate-800 border border-slate-600 rounded-2xl w-full max-w-xs p-6 space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+        <h3 class="font-bold text-base text-white flex items-center gap-2">
+          <i data-lucide="shield-check" class="w-5 h-5 text-amber-400"></i> Vereins-PIN erforderlich
+        </h3>
+        <button onclick="closeVereinsPinModal()" class="text-slate-300 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <p id="vereins-pin-action-label" class="text-xs text-slate-300">Bitte gib die Vereins-PIN ein, um fortzufahren.</p>
+      <form onsubmit="submitVereinsPin(event)" class="space-y-3">
+        <input type="password" id="vereins-pin-input" inputmode="numeric" maxlength="8" required placeholder="••••" class="w-full bg-slate-900 border border-slate-600 rounded-xl p-3 text-center text-xl font-mono tracking-[0.4em] text-white focus:outline-none focus:border-amber-400">
+        <p id="vereins-pin-error" class="hidden text-xs text-rose-400 text-center font-semibold">Falsche Vereins-PIN!</p>
+        <div class="flex gap-2 pt-1">
+          <button type="button" onclick="closeVereinsPinModal()" class="w-1/2 bg-slate-700 hover:bg-slate-600 py-2 rounded-xl text-xs font-semibold text-slate-200 border border-slate-600">Abbrechen</button>
+          <button type="submit" class="w-1/2 bg-amber-500 hover:bg-amber-600 py-2 rounded-xl text-xs font-bold text-slate-950 shadow-md">Bestätigen</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script>
+    /* ============================================================
+       VEREINS-PIN FÜR GESCHÜTZTE AKTIONEN (Löschen, CSV, Archiv)
+       ============================================================ */
+    const VEREINS_PIN = "0707";
+    let pendingProtectedAction = null;
+
+    function requestVereinsPin(actionDescription, callback) {
+      pendingProtectedAction = callback;
+      const label = document.getElementById('vereins-pin-action-label');
+      const input = document.getElementById('vereins-pin-input');
+      const error = document.getElementById('vereins-pin-error');
+      if (label) label.textContent = `Aktion: ${actionDescription} – Bitte Vereins-PIN eingeben.`;
+      if (input) input.value = '';
+      if (error) error.classList.add('hidden');
+      document.getElementById('vereins-pin-modal').classList.remove('hidden');
+      lucide.createIcons();
+      setTimeout(() => { if (input) input.focus(); }, 50);
+    }
+
+    function closeVereinsPinModal() {
+      pendingProtectedAction = null;
+      document.getElementById('vereins-pin-modal').classList.add('hidden');
+    }
+
+    function submitVereinsPin(e) {
+      e.preventDefault();
+      const input = document.getElementById('vereins-pin-input');
+      const error = document.getElementById('vereins-pin-error');
+      if (input && input.value.trim() === VEREINS_PIN) {
+        const action = pendingProtectedAction;
+        closeVereinsPinModal();
+        if (typeof action === 'function') action();
+      } else {
+        if (error) error.classList.remove('hidden');
+        if (input) {
+          input.value = '';
+          input.focus();
+        }
+      }
+    }
+
+    /* ============================================================
+       DIREKT-KOPIE FÜR SPIEL-PIN & SPIELLOKAL / SPIELCODE
+       ============================================================ */
+    function copyToClipboard(text, btnElement) {
+      if (!text) return;
+      const doFeedback = () => {
+        if (!btnElement) return;
+        const originalHtml = btnElement.innerHTML;
+        btnElement.innerHTML = `<i data-lucide="check" class="w-3 h-3 text-emerald-400"></i> <span class="text-emerald-300">Kopiert!</span>`;
+        lucide.createIcons();
+        setTimeout(() => {
+          btnElement.innerHTML = originalHtml;
+          lucide.createIcons();
+        }, 1500);
+      };
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(doFeedback).catch(() => {
+          fallbackCopyText(text);
+          doFeedback();
+        });
+      } else {
+        fallbackCopyText(text);
+        doFeedback();
+      }
+    }
+
+    function fallbackCopyText(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch (e) {}
+      document.body.removeChild(ta);
+    }
+
+    /* ============================================================
+       SCHNELLER LIVE-ZWISCHENSTAND (+1 / -1 BUTTONS)
+       ============================================================ */
+    async function adjustLiveScore(matchId, side, delta) {
+      const m = allMatches.find(item => item.id === matchId);
+      if (!m) return;
+
+      const type = m.matchType || (m.myTeam === 'Verein' ? 'event' : 'league');
+      const maxSum = type === 'cup' ? 4 : 10;
+
+      let sHome = parseInt(m.scoreHome) || 0;
+      let sAway = parseInt(m.scoreAway) || 0;
+
+      if (delta > 0 && (sHome + sAway) >= maxSum) return;
+
+      if (side === 'home') {
+        sHome = Math.max(0, sHome + delta);
+      } else {
+        sAway = Math.max(0, sAway + delta);
+      }
+
+      if (isFirebaseConnected && db) {
+        await db.collection('matches').doc(matchId).update({
+          scoreHome: sHome,
+          scoreAway: sAway
+        });
+      } else {
+        m.scoreHome = sHome;
+        m.scoreAway = sAway;
+        saveLocal();
+        updateStats();
+        renderMatches();
+        renderStandings();
+        renderCupMatches();
+      }
+    }
+
     /* AUTOMATISCHER SAISON-TITEL (Wechsel jeweils zum 15. Juli) */
     function getCurrentSeasonString() {
       const now = new Date();
@@ -1247,7 +1384,8 @@
         const awayTeamName = m.isHome ? m.opponent : m.myTeam;
         const mapsUrl = m.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(m.address)}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(awayTeamName)}`;
 
-        const hasPartialScore = m.scoreHome !== null && m.scoreAway !== null && m.scoreHome !== "" && m.scoreAway !== "";
+        const liveHome = parseInt(m.scoreHome) || 0;
+        const liveAway = parseInt(m.scoreAway) || 0;
 
         return `
           <div class="bg-slate-900 border ${isRunning ? 'border-rose-500/60 shadow-rose-900/20' : isCup ? 'border-amber-500/40' : 'border-slate-700'} rounded-xl p-4 transition hover:border-slate-500 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-md">
@@ -1281,14 +1419,14 @@
                   <i data-lucide="calendar" class="w-3.5 h-3.5"></i> ${formattedDate} Uhr
                 </span>
                 ${m.pin ? `
-                  <span class="text-xs px-2 py-0.5 rounded font-mono font-semibold bg-slate-800 text-amber-300 border border-slate-600 flex items-center gap-1">
-                    <i data-lucide="key-round" class="w-3 h-3 text-amber-400"></i> PIN: ${m.pin}
-                  </span>
+                  <button type="button" onclick="copyToClipboard('${m.pin.replace(/'/g, "\\'")}', this)" title="Spiel-PIN kopieren" class="text-xs px-2 py-0.5 rounded font-mono font-semibold bg-slate-800 hover:bg-slate-700 active:scale-95 text-amber-300 border border-slate-600 flex items-center gap-1 transition cursor-pointer">
+                    <i data-lucide="key-round" class="w-3 h-3 text-amber-400"></i> PIN: ${m.pin} <i data-lucide="copy" class="w-2.5 h-2.5 text-slate-400 ml-0.5"></i>
+                  </button>
                 ` : ''}
                 ${hallCode ? `
-                  <span class="text-xs px-2 py-0.5 rounded font-mono font-semibold bg-slate-800 text-cyan-300 border border-slate-600 flex items-center gap-1">
-                    <i data-lucide="building-2" class="w-3 h-3 text-cyan-400"></i> ${hallCode}
-                  </span>
+                  <button type="button" onclick="copyToClipboard('${hallCode.replace(/'/g, "\\'")}', this)" title="Spiellokal / Spielcode kopieren" class="text-xs px-2 py-0.5 rounded font-mono font-semibold bg-slate-800 hover:bg-slate-700 active:scale-95 text-cyan-300 border border-slate-600 flex items-center gap-1 transition cursor-pointer">
+                    <i data-lucide="building-2" class="w-3 h-3 text-cyan-400"></i> ${hallCode} <i data-lucide="copy" class="w-2.5 h-2.5 text-slate-400 ml-0.5"></i>
+                  </button>
                 ` : ''}
               </div>
 
@@ -1299,19 +1437,24 @@
               </div>
             </div>
 
-            <div class="flex items-center justify-between w-full sm:w-auto gap-4 border-t sm:border-t-0 border-slate-800 pt-3 sm:pt-0">
+            <div class="flex items-center justify-between w-full sm:w-auto gap-3 border-t sm:border-t-0 border-slate-800 pt-3 sm:pt-0">
               ${isDone ? `
                 <div class="bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-600 font-mono text-lg font-bold tracking-wider ${isCup ? 'text-amber-400' : 'text-emerald-400'}">
                   ${m.scoreHome} : ${m.scoreAway}
                 </div>
               ` : isRunning ? `
-                <div class="flex items-center gap-2">
-                  <div class="bg-slate-800 px-3 py-1.5 rounded-lg border border-rose-500/50 font-mono text-lg font-bold tracking-wider text-rose-400">
-                    ${hasPartialScore ? `${m.scoreHome} : ${m.scoreAway}` : '0 : 0'}
+                <div class="flex items-center gap-1.5 bg-slate-800 px-2 py-1.5 rounded-xl border border-rose-500/50">
+                  <div class="flex items-center gap-1">
+                    <button type="button" onclick="adjustLiveScore('${m.id}', 'home', -1)" title="Heim -1" class="w-7 h-7 rounded-lg bg-slate-700 hover:bg-slate-600 active:scale-95 text-slate-200 font-bold text-sm flex items-center justify-center transition">−</button>
+                    <span class="font-mono text-lg font-extrabold text-rose-400 min-w-[1.5rem] text-center">${liveHome}</span>
+                    <button type="button" onclick="adjustLiveScore('${m.id}', 'home', 1)" title="Heim +1" class="w-7 h-7 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 active:scale-95 text-emerald-300 border border-emerald-500/40 font-bold text-sm flex items-center justify-center transition">+</button>
                   </div>
-                  <span class="text-[10px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/30 px-2 py-1 rounded-md animate-pulse">
-                    Läuft...
-                  </span>
+                  <span class="text-slate-400 font-bold px-0.5">:</span>
+                  <div class="flex items-center gap-1">
+                    <button type="button" onclick="adjustLiveScore('${m.id}', 'away', -1)" title="Gast -1" class="w-7 h-7 rounded-lg bg-slate-700 hover:bg-slate-600 active:scale-95 text-slate-200 font-bold text-sm flex items-center justify-center transition">−</button>
+                    <span class="font-mono text-lg font-extrabold text-rose-400 min-w-[1.5rem] text-center">${liveAway}</span>
+                    <button type="button" onclick="adjustLiveScore('${m.id}', 'away', 1)" title="Gast +1" class="w-7 h-7 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 active:scale-95 text-emerald-300 border border-emerald-500/40 font-bold text-sm flex items-center justify-center transition">+</button>
+                  </div>
                 </div>
               ` : `
                 <span class="text-xs font-semibold text-amber-300 bg-amber-400/20 border border-amber-400/30 px-2.5 py-1 rounded-lg">
@@ -1822,23 +1965,25 @@
       closeModal();
     }
 
-    async function deleteMatch(id) {
-      if (!confirm('Möchtest du diesen Eintrag wirklich löschen?')) return;
-      
-      if (isFirebaseConnected && db) {
-        await db.collection('matches').doc(id).delete();
-      } else {
-        allMatches = allMatches.filter(m => m.id !== id);
-        saveLocal();
-        sortMatchesChronologically();
-        updateTeamDropdownOptions();
-        updateStats();
-        renderEventsBanner();
-        renderMatches();
-        renderStandings();
-        renderCupMatches();
-        renderEvents();
-      }
+    function deleteMatch(id) {
+      const m = allMatches.find(item => item.id === id);
+      const label = m ? `${m.myTeam} vs. ${m.opponent} löschen` : 'Eintrag löschen';
+      requestVereinsPin(label, async () => {
+        if (isFirebaseConnected && db) {
+          await db.collection('matches').doc(id).delete();
+        } else {
+          allMatches = allMatches.filter(item => item.id !== id);
+          saveLocal();
+          sortMatchesChronologically();
+          updateTeamDropdownOptions();
+          updateStats();
+          renderEventsBanner();
+          renderMatches();
+          renderStandings();
+          renderCupMatches();
+          renderEvents();
+        }
+      });
     }
 
     function downloadICS(matchId) {
