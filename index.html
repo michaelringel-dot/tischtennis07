@@ -2106,24 +2106,47 @@ END:VCALENDAR`;
       }
     }
 
-    /* AUTOMATISCHER SYNC BEIM ENTSPERREN / TAB-WECHSEL */
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        if (isFirebaseConnected && db) {
-          db.collection('matches').get().then(snapshot => {
-            allMatches = [];
-            snapshot.forEach(doc => allMatches.push({ id: doc.id, ...doc.data() }));
-            sortMatchesChronologically();
-            updateStats();
-            renderEventsBanner();
-            renderMatches();
-            renderStandings();
-            renderCupMatches();
-            renderEvents();
-          }).catch(() => {});
+    /* ============================================================
+       AUTOMATISCHER SYNC BEIM ENTSPERREN, TAB-WECHSEL & AUFWECKEN
+       ============================================================ */
+    let lastSyncTimestamp = 0;
+
+    function syncMatchesNow() {
+      const now = Date.now();
+      if (now - lastSyncTimestamp < 2000) return;
+      lastSyncTimestamp = now;
+
+      if (isFirebaseConnected && db) {
+        const badge = document.getElementById('status-badge');
+        if (badge) {
+          badge.className = "px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1";
+          badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span> Aktualisiere...';
         }
+
+        db.collection('matches').get({ source: 'server' }).then(snapshot => {
+          allMatches = [];
+          snapshot.forEach(doc => allMatches.push({ id: doc.id, ...doc.data() }));
+          sortMatchesChronologically();
+          updateTeamDropdownOptions();
+          updateStats();
+          renderEventsBanner();
+          renderMatches();
+          renderStandings();
+          renderCupMatches();
+          renderEvents();
+          updateStatusBadge(true);
+        }).catch(() => {
+          updateStatusBadge(isFirebaseConnected);
+        });
       }
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') syncMatchesNow();
     });
+    window.addEventListener('focus', syncMatchesNow);
+    window.addEventListener('pageshow', syncMatchesNow);
+    window.addEventListener('online', syncMatchesNow);
 
     /* Timer: Aktualisiert die Ansicht regelmäßig */
     setInterval(() => {
